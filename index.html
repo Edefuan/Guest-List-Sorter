@@ -105,29 +105,71 @@
     throw new Error("Please choose a PDF, .docx, or .txt file.");
   }
 
-  function findRows(text) {
-    const phonePattern = /(?:\+?\d[\d\s().-]{6,}\d)/g;
-    const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    const found = [];
+  unction normalizePhone(raw) {
+  const hadPlus = raw.trim().startsWith("+");
+  let digits = raw.replace(/\D/g, "");
 
-    for (let i = 0; i < lines.length; i++) {
-      const match = lines[i].match(phonePattern);
-      if (!match) continue;
-
-      const phone = match[0].trim();
-      let name = lines[i].replace(phonePattern, " ").replace(/[|,:;–—-]/g, " ").trim();
-
-      if (!name && i > 0) {
-        const previous = lines[i - 1].trim();
-        if (previous && !previous.match(phonePattern)) name = previous;
-      }
-
-      found.push({ name, phone });
-    }
-    return found;
+  // Remove a table row number accidentally joined to a Nigerian number.
+  if (digits.length === 12 && /^[1-9]0/.test(digits)) {
+    digits = digits.slice(1);
   }
 
-  document.getElementById("process").onclick = async () => {
+  if (digits.startsWith("234") && digits.length === 13) {
+    return "+" + digits;
+  }
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return "+234" + digits.slice(1);
+  }
+  if (digits.length === 10) {
+    return "+234" + digits;
+  }
+  if (hadPlus && digits.length >= 8 && digits.length <= 15) {
+    return "+" + digits;
+  }
+
+  return raw.trim();
+}
+
+function findRows(text) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const found = [];
+  const phonePattern = /\+?\d[\d(). -]{8,}\d/g;
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+    const matches = [...line.matchAll(phonePattern)];
+    let previousEnd = 0;
+
+    for (const match of matches) {
+      let name = line.slice(previousEnd, match.index)
+        .replace(/\b(?:Merlot|Violet)\s+table\s+\d*\b/ig, "")
+        .replace(/\b(?:Olaitan|Idera)\s+Family\s+table\b/ig, "")
+        .replace(/\bName\s+Phone\s+number\b/ig, "")
+        .replace(/[|,:;\t]+/g, " ")
+        .replace(/\s+\d+\s*$/, "")
+        .trim();
+
+      if (!name) {
+        for (let previous = lineIndex - 1; previous >= Math.max(0, lineIndex - 2); previous--) {
+          const candidate = lines[previous];
+          if (!/\d{10,}/.test(candidate) &&
+              !/\btable\b|\bphone\b|\bname\b/i.test(candidate)) {
+            name = candidate;
+            break;
+          }
+        }
+      }
+
+      found.push({ name, phone: normalizePhone(match[0]) });
+      previousEnd = match.index + match[0].length;
+    }
+  }
+
+  return found;
+}
+
+
+21:20
     const file = fileInput.files[0];
     if (!file) {
       statusBox.textContent = "Choose a file first.";
