@@ -163,7 +163,7 @@
         <tbody id="guestRows"><tr><td class="empty" colspan="4">Your guests will appear here. Ready when you are! 🎉</td></tr></tbody>
       </table>
     </div>
-    <div class="results-foot"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 11v5m0-8h.01"/></svg><span>International prefixes such as +44 and 00 234 are recognised automatically. Numbers without a prefix are checked against country numbering rules and formatted when there is one clear match. If multiple countries match, add the correct +country code to that number. Only valid numbers are exported.</span></div>
+    <div class="results-foot"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 11v5m0-8h.01"/></svg><span>International prefixes such as +44 and 00 234 are recognised automatically. For local mobile numbers, GLS checks country mobile-number ranges and formats a number when one country is a clear match. Ambiguous numbers stay marked for review. Excel export includes every guest, their phone, and the detected calling code when available.</span></div>
   </section>
 </main>
 
@@ -183,13 +183,14 @@
   let guests = [];
 
   const regions = getCountries();
-
   const clean = value => String(value ?? "").replace(/\s+/g, " ").trim();
   const compact = value => clean(value).replace(/[().\s-]/g, "");
 
   function parsePhone(raw) {
     const input = compact(raw);
-    if (!input) return { phone: "", status: "review", reason: "Enter a phone number" };
+    if (!input) {
+      return { phone: "", callingCode: "", status: "review", reason: "Enter a phone number" };
+    }
 
     const international = input.startsWith("+")
       ? input
@@ -202,45 +203,68 @@
       if (parsed?.isValid()) {
         return {
           phone: parsed.number,
+          callingCode: `+${parsed.countryCallingCode}`,
           status: "ready",
           reason: `Country code +${parsed.countryCallingCode} detected`
         };
       }
       return {
         phone: input,
+        callingCode: "",
         status: "review",
         reason: "Invalid or unrecognised international number"
       };
     }
 
-    // Check all country numbering plans. Format only if the possible matches
-    // produce one E.164 result; never guess between different country codes.
+    // Check all country numbering plans. Prefer a unique valid mobile match.
     const matches = new Map();
+    const mobileMatches = new Map();
+
     for (const region of regions) {
       const parsed = parsePhoneNumberFromString(input, region);
-      if (parsed?.isValid()) matches.set(parsed.number, parsed);
-      if (matches.size > 1) break;
+
+      if (parsed?.isValid()) {
+        matches.set(parsed.number, parsed);
+        if (parsed.getType?.() === "MOBILE") {
+          mobileMatches.set(parsed.number, parsed);
+        }
+      }
+
+      if (mobileMatches.size > 1) break;
+    }
+
+    if (mobileMatches.size === 1) {
+      const parsed = mobileMatches.values().next().value;
+      return {
+        phone: parsed.number,
+        callingCode: `+${parsed.countryCallingCode}`,
+        status: "ready",
+        reason: `Mobile number matched country code +${parsed.countryCallingCode}`
+      };
+    }
+
+    if (mobileMatches.size > 1 || matches.size > 1) {
+      return {
+        phone: input,
+        callingCode: "",
+        status: "review",
+        reason: "This number matches more than one country; add its +country code"
+      };
     }
 
     if (matches.size === 1) {
       const parsed = matches.values().next().value;
       return {
         phone: parsed.number,
+        callingCode: `+${parsed.countryCallingCode}`,
         status: "ready",
         reason: `Automatically matched country code +${parsed.countryCallingCode}`
       };
     }
 
-    if (matches.size > 1) {
-      return {
-        phone: input,
-        status: "review",
-        reason: "This number matches more than one country; add its +country code"
-      };
-    }
-
     return {
       phone: input,
+      callingCode: "",
       status: "review",
       reason: "Could not identify a country code; add it with + to confirm"
     };
@@ -347,6 +371,7 @@
               name: pair.name,
               sourcePhone: pair.phone,
               phone: parsed.phone,
+              callingCode: parsed.callingCode || "",
               status: parsed.status,
               reason: parsed.reason
             });
@@ -399,6 +424,7 @@
         const parsed = parsePhone(phone.value);
         Object.assign(guest, {
           phone: parsed.phone,
+          callingCode: parsed.callingCode || "",
           status: parsed.status,
           reason: parsed.reason
         });
@@ -452,10 +478,11 @@
     if (!rowsToExport.length) return;
 
     const sheet = XLSX.utils.aoa_to_sheet([
-      ["Name", "Phone (E.164 when detected)", "Status", "Review note"],
+      ["Name", "Phone (E.164 when detected)", "Country calling code", "Status", "Review note"],
       ...rowsToExport.map(guest => [
         guest.name.trim(),
         guest.phone,
+        guest.callingCode || "",
         guest.status === "ready" ? "Ready" : "Review",
         guest.status === "ready" ? "" : guest.reason
       ])
@@ -464,14 +491,18 @@
     sheet["!cols"] = [
       { wch: 32 },
       { wch: 28 },
+      { wch: 20 },
       { wch: 12 },
       { wch: 58 }
     ];
 
-    // Keep phone values as text so Excel preserves a leading +.
+    // Keep phone and calling code values as text in Excel.
     for (let row = 1; row <= rowsToExport.length; row++) {
-      const cell = sheet[XLSX.utils.encode_cell({ r: row, c: 1 })];
-      if (cell) cell.t = "s";
+      const phoneCell = sheet[XLSX.utils.encode_cell({ r: row, c: 1 })];
+      if (phoneCell) phoneCell.t = "s";
+
+      const callingCodeCell = sheet[XLSX.utils.encode_cell({ r: row, c: 2 })];
+      if (callingCodeCell) callingCodeCell.t = "s";
     }
 
     const workbook = XLSX.utils.book_new();
