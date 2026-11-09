@@ -62,7 +62,24 @@ async function readFile(f){let ext=f.name.split('.').pop().toLowerCase();if(ext=
 if(ext==='docx'){if(!window.mammoth)throw Error('Word reader did not load. Check your internet connection.');return(await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value}
 if(['txt','csv','tsv'].includes(ext))return f.text();if(['html','htm'].includes(ext))return new DOMParser().parseFromString(await f.text(),'text/html').body.innerText;throw Error('Use PDF, DOCX, TXT, or CSV files.')}
 const phoneRegex=/(?:\+|00)?\d[\d\s().\-/]{5,}\d/g;
-function formatPhone(value){let s=String(value||'').trim();if(!s)return'';try{let p=libphonenumber.parsePhoneNumberFromString(s,country.value);return p&&p.isValid()?p.number:s}catch{return s}}
+function formatPhone(value) {
+  let number = String(value || '').trim();
+  if (!number) return '';
+
+  if (number.startsWith('00')) {
+    number = '+' + number.slice(2);
+  }
+
+  try {
+    const parsed = number.startsWith('+')
+      ? libphonenumber.parsePhoneNumberFromString(number)
+      : libphonenumber.parsePhoneNumberFromString(number, country.value);
+
+    return parsed && parsed.isValid() ? parsed.number : number;
+  } catch {
+    return number;
+  }
+}
 function extract(text){let lines=String(text).replace(/\u00a0/g,' ').split(/[\r\n]+/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean),out=[],lastName='';
 for(let line of lines){let ms=[...line.matchAll(phoneRegex)];if(!ms.length){let n=clean(line);if(isName(n))lastName=n;else if(!/^(name|guest|phone|mobile|contact|attendees|rsvp)$/i.test(line))lastName='';continue}
 for(let i=0;i<ms.length;i++){let m=ms[i],before=line.slice(i?ms[i-1].index+ms[i-1][0].length:0,m.index),after=line.slice(m.index+m[0].length,ms[i+1]?.index??line.length),name=clean(before)||clean(after)||lastName,phone=formatPhone(m[0]);if(isName(name)&&phone.replace(/\D/g,'').length>=10)out.push({name,phone,raw:m[0]})}lastName=''}return out}
