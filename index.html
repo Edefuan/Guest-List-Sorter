@@ -105,21 +105,6 @@
   }
 
   function parsePhone(raw) {
-    const input = clean(raw).replace(/[().\s-]/g, "");
-    if (!input) return { phone: "", status: "review", reason: "Enter a number" };
-
-    // Accept explicit international numbers only. Do not guess a country.
-    const international = input.startsWith("+")
-      ? input
-      : input.startsWith("00")
-        ? "+" + input.slice(2)
-        : null;
-
-    if (!international) {
-      return { phone: input, status: "review", reason: "No country code provided" };
-    }
-
-  function parsePhone(raw) {
   const input = clean(raw).replace(/[().\s-]/g, "");
   if (!input) {
     return { phone: "", status: "review", reason: "Enter a number" };
