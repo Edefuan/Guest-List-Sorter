@@ -3,249 +3,271 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Guest List Cleaner</title>
+  <meta name="theme-color" content="#f7f5ff">
+  <title>GLS — Guest List Studio</title>
   <style>
-    * { box-sizing: border-box; }
+    :root {
+      --ink:#22213b; --muted:#706f88; --purple:#6654d9; --purple-dark:#4c3cbd;
+      --green:#147b59; --line:#eceaf5; --surface:#fff; --bg:#f7f5ff;
+    }
+    * { box-sizing:border-box; }
     body {
-      margin: 0; padding: 32px 18px; background: #f5f7f6; color: #20372e;
-      font: 15px/1.5 system-ui, -apple-system, sans-serif;
+      margin:0; min-height:100vh; color:var(--ink);
+      font:15px/1.5 ui-rounded,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:radial-gradient(ellipse at 6% 2%,#e7ddff 0,transparent 27%),
+        radial-gradient(ellipse at 100% 22%,#d9f8ec 0,transparent 26%),var(--bg);
     }
-    main { max-width: 900px; margin: 0 auto; }
-    h1 { margin: 0; font-size: clamp(30px, 6vw, 46px); line-height: 1.1; }
-    h1 span { color: #21865f; }
-    .lead { color: #687970; margin: 12px 0 25px; }
-    .upload {
-      background: white; border: 2px dashed #b9cec4; border-radius: 12px;
-      padding: 30px 18px; text-align: center;
-    }
-    .upload.drag { border-color: #21865f; background: #f1faf5; }
-    button {
-      border: 0; border-radius: 7px; padding: 11px 16px; cursor: pointer;
-      font: inherit; font-weight: 650;
-    }
-    .choose { background: white; border: 1px solid #cbd8d1; color: #29483a; }
-    .export { background: #197851; color: white; }
-    .export:disabled { opacity: .45; cursor: not-allowed; }
-    #message { min-height: 24px; margin: 12px 0; color: #426a57; }
-    .tablehead { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:30px; }
-    h2 { margin:0; font-size:22px; }
-    .summary { color:#718078; font-size:13px; margin:10px 0; }
-    .tablewrap { overflow-x:auto; background:white; border-radius:10px; }
-    table { width:100%; border-collapse:collapse; min-width:760px; }
-    th { text-align:left; color:#75847c; font-size:11px; letter-spacing:.07em; }
-    th, td { padding:12px; border-bottom:1px solid #e9eeeb; }
-    td input { width:100%; padding:8px; border:1px solid transparent; border-radius:5px; font:inherit; color:#20372e; }
-    td input:focus, td input:hover { outline:none; border-color:#bdd7ca; }
-    .status { display:inline-block; border-radius:20px; padding:4px 9px; font-size:12px; white-space:nowrap; }
-    .ready { color:#28764f; background:#e8f5ed; }
-    .review { color:#956216; background:#fff2dc; }
-    .note { display:block; color:#89968f; font-size:11px; padding:0 8px; }
-    .remove { color:#9b5b5b; background:transparent; padding:4px 8px; }
-    .empty { text-align:center; color:#7b8982; padding:45px 12px; }
-    footer { margin-top:16px; color:#7a8881; font-size:12px; }
-    @media(max-width:540px) {
-      body { padding:22px 12px; }
-      .tablehead { align-items:flex-start; flex-direction:column; }
+    button,input { font:inherit; }
+    button { cursor:pointer; }
+    .shell { max-width:1120px; margin:auto; padding:28px 24px 56px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:34px; }
+    .brand { display:flex; align-items:center; gap:12px; }
+    .brand-mark { width:54px; height:54px; filter:drop-shadow(0 6px 10px #6654d933); }
+    .brand-name { font-size:23px; font-weight:900; letter-spacing:.04em; line-height:1.05; }
+    .brand-caption { color:var(--muted); font-size:12px; margin-top:4px; }
+    .privacy { display:flex; align-items:center; gap:8px; border:1px solid #d6efe1; background:#f1fff7; color:#257554; border-radius:999px; padding:8px 13px; font-size:12px; font-weight:700; }
+    .hero { display:grid; grid-template-columns:1.18fr .82fr; align-items:center; gap:24px; margin:0 0 26px; }
+    .eyebrow { display:inline-flex; align-items:center; gap:7px; background:#fff; color:var(--purple-dark); border:1px solid #e8e3ff; border-radius:999px; padding:6px 12px; font-size:12px; font-weight:800; }
+    h1 { font-size:clamp(36px,6vw,62px); line-height:1.02; letter-spacing:-.045em; margin:16px 0 12px; }
+    h1 .color { color:var(--purple); }
+    .hero-copy { color:var(--muted); max-width:600px; font-size:16px; margin:0; }
+    .hero-art { justify-self:end; width:min(100%,345px); }
+    .hero-art svg { display:block; width:100%; height:auto; }
+    .upload-card,.results-card { background:var(--surface); border:1px solid #eeebf7; border-radius:22px; box-shadow:0 14px 40px #34266b0a; }
+    .upload-card { padding:10px; }
+    .dropzone { min-height:185px; padding:28px 20px; border:2px dashed #c9bfed; border-radius:16px; background:linear-gradient(135deg,#fbfaff,#f5fffa); text-align:center; transition:.2s; }
+    .dropzone.drag { border-color:var(--purple); background:#f0edff; transform:scale(.995); }
+    .upload-icon { width:46px; height:46px; margin:0 auto 8px; display:grid; place-items:center; border-radius:15px; background:#eeeaff; color:var(--purple); }
+    .upload-title { font-size:18px; font-weight:850; margin:0; }
+    .upload-help { margin:3px 0 13px; color:var(--muted); font-size:13px; }
+    .button { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:0; border-radius:12px; padding:11px 17px; font-weight:800; transition:transform .15s,background .15s; }
+    .button:hover { transform:translateY(-1px); }
+    .button.primary { background:var(--purple); color:white; box-shadow:0 7px 14px #6654d933; }
+    .button.primary:hover { background:var(--purple-dark); }
+    .button.export { background:var(--green); color:#fff; }
+    .button.export:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+    #files { display:none; }
+    .file-note { color:#89879b; font-size:11px; margin-top:11px; }
+    #message { min-height:24px; padding:0 4px; margin:10px 0 16px; color:#316f55; font-size:13px; font-weight:650; }
+    .results-card { overflow:hidden; }
+    .results-top { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:22px 24px 15px; }
+    .results-title-wrap { display:flex; gap:12px; align-items:center; }
+    .list-icon { display:grid; place-items:center; width:42px; height:42px; border-radius:14px; color:#d56547; background:#fff0e6; }
+    h2 { font-size:22px; margin:0; letter-spacing:-.02em; }
+    .subhead { color:var(--muted); font-size:12px; margin-top:2px; }
+    .summary { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:0 24px 15px; color:var(--muted); font-size:12px; }
+    .count { color:var(--ink); font-weight:800; }
+    .dot { width:4px; height:4px; border-radius:50%; background:#b9b5ca; }
+    .table-wrap { overflow-x:auto; border-top:1px solid var(--line); }
+    table { width:100%; min-width:800px; border-collapse:collapse; }
+    thead { background:#fbfaff; }
+    th { padding:12px 15px; text-align:left; color:#77758d; font-size:10px; text-transform:uppercase; letter-spacing:.09em; }
+    td { padding:11px 15px; border-top:1px solid #f0eef6; vertical-align:middle; }
+    tbody tr:hover { background:#fdfcff; }
+    .guest-name { min-width:150px; }
+    td input { width:100%; min-width:120px; padding:8px 9px; border:1px solid transparent; border-radius:9px; background:transparent; color:var(--ink); outline:none; }
+    td input:hover,td input:focus { border-color:#d9d2f5; background:#fff; }
+    .phone-input { font-variant-numeric:tabular-nums; font-weight:700; }
+    .country-input { min-width:190px; background:#faf9ff; border-color:#efedf8; font-size:12px; }
+    .note { display:block; padding:3px 8px 0; color:#88869a; font-size:10px; }
+    .status { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; border-radius:999px; padding:5px 9px; font-size:11px; font-weight:800; }
+    .status.ready { color:#18734f; background:#e6f8ee; }
+    .status.review { color:#986119; background:#fff2d8; }
+    .remove { border:0; border-radius:8px; background:transparent; color:#a16e79; font-size:19px; padding:3px 8px; }
+    .remove:hover { background:#fff0f0; color:#bb4343; }
+    .empty { padding:34px 14px; text-align:center; color:#89879b; }
+    .results-foot { display:flex; align-items:flex-start; gap:8px; padding:13px 24px 18px; color:#77758d; font-size:11px; }
+    .results-foot svg { flex:0 0 auto; color:var(--purple); margin-top:1px; }
+    .sparkle { color:#ff806e; }
+    @media(max-width:720px) {
+      .shell { padding:18px 14px 36px; }
+      .hero { grid-template-columns:1fr; gap:4px; }
+      .hero-art { width:185px; justify-self:end; margin-top:-8px; }
+      .privacy { font-size:0; padding:8px; }
+      .results-top { padding:18px 15px 13px; align-items:flex-start; }
+      .results-top .button { padding:10px 12px; font-size:12px; }
+      .summary { padding:0 15px 13px; }
+      .results-foot { padding:12px 15px 16px; }
     }
   </style>
 </head>
 <body>
-<main>
-  <h1>Your guest list,<br><span>neatly in order.</span></h1>
-  <p class="lead">Upload a document, review each number, choose a country code where needed, then export to Excel. Existing international codes are detected automatically.</p>
+<main class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 64 64" role="img" aria-label="GLS logo">
+        <defs><linearGradient id="logoFill" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8475f3"/><stop offset="1" stop-color="#5845cb"/></linearGradient></defs>
+        <rect x="2" y="2" width="60" height="60" rx="20" fill="url(#logoFill)"/>
+        <path d="M18 23h15v-5H18a7 7 0 0 0-7 7v15a7 7 0 0 0 7 7h15V31H21v5h7v6H18V23Zm23-5a7 7 0 0 0-7 7v2a7 7 0 0 0 7 7h8v8H39v-4h-5v4a7 7 0 0 0 7 7h8a7 7 0 0 0 7-7v-8a7 7 0 0 0-7-7h-8v-4h15v-5H41Z" fill="white" transform="translate(1 0) scale(.88)"/>
+        <circle cx="51" cy="12" r="4" fill="#ffe994"/>
+      </svg>
+      <div><div class="brand-name">GLS</div><div class="brand-caption">Guest List Studio</div></div>
+    </div>
+    <div class="privacy" title="Files are processed in your browser">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg>
+      Files stay on your device
+    </div>
+  </header>
 
-  <section class="upload" id="dropzone">
-    <strong>Drop your file here</strong>
-    <p>PDF, Word (.docx), CSV or text file</p>
-    <button class="choose" id="choose">Choose file</button>
-    <input id="files" type="file" accept=".pdf,.docx,.csv,.txt" multiple hidden>
-    <div style="color:#87948d;font-size:12px;margin-top:10px">Files are processed in your browser.</div>
+  <section class="hero">
+    <div>
+      <span class="eyebrow"><span class="sparkle">✦</span> LESS LIST WORK, MORE CELEBRATION</span>
+      <h1>Your guests,<br><span class="color">all in a row.</span></h1>
+      <p class="hero-copy">Turn guest documents into a tidy, Excel-ready list. We recognise international calling codes and format valid numbers as E.164.</p>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <svg viewBox="0 0 360 240" fill="none">
+        <path d="M50 175c24-65 61-104 128-105 68-1 99 42 132 101" stroke="#d9d0ff" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 11"/>
+        <circle cx="75" cy="60" r="23" fill="#ffe9a8"/><path d="m75 45 4.4 9 10 1.5-7.2 7 1.7 10-8.9-4.7-8.9 4.7 1.7-10-7.2-7 10-1.5L75 45Z" fill="#d29a27"/>
+        <rect x="88" y="63" width="185" height="140" rx="20" fill="white" stroke="#ece8ff" stroke-width="3"/>
+        <rect x="108" y="84" width="145" height="26" rx="9" fill="#eeeaff"/>
+        <circle cx="125" cy="97" r="6" fill="#806fec"/><path d="m122 97 2 2 4-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="140" y="93" width="89" height="7" rx="3.5" fill="#c2b9f5"/>
+        <rect x="108" y="120" width="145" height="26" rx="9" fill="#e5f8ee"/>
+        <circle cx="125" cy="133" r="6" fill="#37a879"/><path d="m122 133 2 2 4-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="140" y="129" width="73" height="7" rx="3.5" fill="#a7dbc0"/>
+        <rect x="108" y="156" width="145" height="26" rx="9" fill="#fff0e7"/>
+        <circle cx="125" cy="169" r="6" fill="#ff806e"/><path d="M122 169h6" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <rect x="140" y="165" width="98" height="7" rx="3.5" fill="#ffc5ae"/>
+        <circle cx="300" cy="58" r="22" fill="#e5f8ee"/><path d="M291 58h18m-9-9v18" stroke="#28956b" stroke-width="3" stroke-linecap="round"/>
+        <path d="M65 182c-18-6-29-1-33 11 14 7 26 3 33-11Z" fill="#79d6a8"/><path d="M61 187c-10 4-18 10-24 17" stroke="#32946a" stroke-width="2" stroke-linecap="round"/>
+        <path d="M298 143c15-17 31-14 37-3-10 14-24 16-37 3Z" fill="#ffb7a3"/><path d="M301 142c9 5 17 11 22 19" stroke="#d66b60" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="49" cy="132" r="5" fill="#ff806e"/><circle cx="317" cy="104" r="4" fill="#8475f3"/>
+      </svg>
+    </div>
   </section>
 
-  <div id="message" role="status"></div>
+  <section class="upload-card" aria-label="Upload guest list">
+    <div class="dropzone" id="dropzone">
+      <div class="upload-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m-5 5 5-5 5 5"/><path d="M20 16.5v2A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5v-2"/></svg></div>
+      <p class="upload-title">Bring your guest list</p>
+      <p class="upload-help">Drop a file here or choose one from your device</p>
+      <button class="button primary" id="choose" type="button">Choose a file <span aria-hidden="true">↗</span></button>
+      <input id="files" type="file" accept=".pdf,.docx,.csv,.txt" multiple>
+      <div class="file-note">PDF · Word (.docx) · CSV · TXT &nbsp;•&nbsp; Processed in your browser</div>
+    </div>
+  </section>
+  <div id="message" role="status" aria-live="polite"></div>
 
-  <div class="tablehead">
-    <h2>Review your list</h2>
-    <button class="export" id="export" disabled>Export to Excel</button>
-  </div>
-  <div class="summary" id="summary">0 guests</div>
-  <div class="tablewrap">
-    <table>
-      <thead><tr><th>Name</th><th>Phone number · E.164</th><th>Country code</th><th>Status</th><th></th></tr></thead>
-      <tbody id="body"><tr><td class="empty" colspan="5">Your guest list will appear here after upload.</td></tr></tbody>
-    </table>
-  </div>
-  <footer>
-    Choose a country code for each number that does not already include one. Numbers with an explicit international code keep that code. Only valid international numbers are exported. Scanned image PDFs are not supported by this version.
-  </footer>
+  <section class="results-card">
+    <div class="results-top">
+      <div class="results-title-wrap">
+        <div class="list-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/><path d="M9 2v4m6-4v4"/></svg></div>
+        <div><h2>Your guest list</h2><div class="subhead">A little tidying before the big day ✨</div></div>
+      </div>
+      <button class="button export" id="export" type="button" disabled><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5"/><path d="M5 17v3h14v-3"/></svg>Export to Excel</button>
+    </div>
+    <div class="summary" id="summary"><span class="count">0 guests</span><span class="dot"></span>Ready to upload</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Guest name</th><th>Phone · E.164</th><th>Country code</th><th>Status</th><th></th></tr></thead>
+        <tbody id="guestRows"><tr><td class="empty" colspan="5">Your guests will appear here. Ready when you are! 🎉</td></tr></tbody>
+      </table>
+    </div>
+    <div class="results-foot"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 11v5m0-8h.01"/></svg><span>International prefixes such as +44 and 00 234 are recognised automatically. A local number without a country prefix can belong to more than one country, so choose its country on that row. Only valid numbers are exported.</span></div>
+  </section>
 </main>
 
 <script type="module">
   import * as XLSX from "https://esm.sh/xlsx@0.18.5";
-  import {
-    parsePhoneNumberFromString,
-    getCountries,
-    getCountryCallingCode
-  } from "https://esm.sh/libphonenumber-js@1.11.20";
+  import { parsePhoneNumberFromString, getCountries, getCountryCallingCode } from "https://esm.sh/libphonenumber-js@1.11.20/max";
   import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
   import mammoth from "https://esm.sh/mammoth@1.9.0";
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
-
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
   const fileInput = document.querySelector("#files");
   const dropzone = document.querySelector("#dropzone");
-  const body = document.querySelector("#body");
+  const rows = document.querySelector("#guestRows");
   const message = document.querySelector("#message");
   const exportButton = document.querySelector("#export");
   const summary = document.querySelector("#summary");
   let guests = [];
 
-  // Country choice is per guest; no default country is assumed for the whole file.
   const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
-  const countryChoices = getCountries().map(country => ({
+  const countries = getCountries().map(country => ({
     country,
     label: `${displayNames.of(country)} (+${getCountryCallingCode(country)})`
   }));
-  const countryLookup = new Map(countryChoices.map(choice => [choice.label, choice.country]));
-  const countryList = document.createElement("datalist");
-  countryList.id = "country-options";
-  for (const choice of countryChoices) {
+  const countryByLabel = new Map(countries.map(item => [item.label, item.country]));
+  const datalist = document.createElement("datalist");
+  datalist.id = "country-options";
+  for (const item of countries) {
     const option = document.createElement("option");
-    option.value = choice.label;
-    countryList.append(option);
+    option.value = item.label;
+    datalist.append(option);
   }
-  document.body.append(countryList);
+  document.body.append(datalist);
 
-  function clean(value) {
-    return String(value ?? "").replace(/\s+/g, " ").trim();
-  }
+  const clean = value => String(value ?? "").replace(/\s+/g, " ").trim();
+  const compact = value => clean(value).replace(/[().\s-]/g, "");
 
-  function parsePhone(raw, selectedCountry = "") {
-    const input = clean(raw).replace(/[().\s-]/g, "");
-    if (!input) {
-      return { phone: "", status: "review", reason: "Enter a number" };
-    }
-
-    const international = input.startsWith("+")
-      ? input
-      : input.startsWith("00")
-        ? "+" + input.slice(2)
-        : null;
-
+  function parsePhone(raw, country = "") {
+    const input = compact(raw);
+    if (!input) return { phone: "", status: "review", reason: "Enter a phone number" };
+    const international = input.startsWith("+") ? input : input.startsWith("00") ? `+${input.slice(2)}` : "";
     if (international) {
       const parsed = parsePhoneNumberFromString(international);
-      if (parsed?.isValid()) {
-        return {
-          phone: parsed.number,
-          status: "ready",
-          reason: `Country code +${parsed.countryCallingCode} detected`
-        };
-      }
-      return {
-        phone: international,
-        status: "review",
-        reason: "Invalid or unrecognized international number"
-      };
+      if (parsed?.isValid()) return { phone: parsed.number, status: "ready", reason: `Country code +${parsed.countryCallingCode} detected`, country: parsed.country || "" };
+      return { phone: input, status: "review", reason: "Invalid or unrecognised international number", country: "" };
     }
-
-    if (selectedCountry) {
-      const parsed = parsePhoneNumberFromString(input, selectedCountry);
-      if (parsed?.isValid()) {
-        return {
-          phone: parsed.number,
-          status: "ready",
-          reason: `Country selected: +${parsed.countryCallingCode}`
-        };
-      }
+    if (country) {
+      const parsed = parsePhoneNumberFromString(input, country);
+      if (parsed?.isValid()) return { phone: parsed.number, status: "ready", reason: `Country selected: +${parsed.countryCallingCode}`, country };
+      return { phone: input, status: "review", reason: `Not a valid ${displayNames.of(country)} number`, country };
     }
-
-    // Accept a number without "+" as international only when it validates that way.
-    const bareInternational = parsePhoneNumberFromString(`+${input}`);
-    if (bareInternational?.isValid()) {
-      return {
-        phone: bareInternational.number,
-        status: "ready",
-        reason: `Country code +${bareInternational.countryCallingCode} detected`
-      };
-    }
-
-    return {
-      phone: input,
-      status: "review",
-      reason: "No country code; choose the country for this number"
-    };
+    return { phone: input, status: "review", reason: "No international prefix; choose the country for this number", country: "" };
   }
 
   function splitLine(line) {
     const value = clean(line);
     if (!value) return null;
-
     let match = value.match(/(?:\+|\b00)\s*\d[\d\s().-]{5,}\d/);
     if (match) {
-      const name = clean(value.slice(0, match.index).replace(/[,:;|—-]+$/, "")) ||
-                   clean(value.slice(match.index + match[0].length).replace(/^[,:;|—-]+/, ""));
+      const before = clean(value.slice(0, match.index).replace(/[,:;|—-]+$/, ""));
+      const after = clean(value.slice(match.index + match[0].length).replace(/^[,:;|—-]+/, ""));
+      const name = before || after;
       if (name) return { name, phone: clean(match[0]) };
     }
-
     match = value.match(/\b\d[\d\s().-]{6,}\d\s*$/);
     if (match) {
       const name = clean(value.slice(0, match.index).replace(/[,:;|—-]+$/, ""));
       if (name) return { name, phone: clean(match[0]) };
     }
-
-    const parts = value.split(/\t+|,{1}|;|\|/).map(clean).filter(Boolean);
+    const parts = value.split(/\t+|,|;|\|/).map(clean).filter(Boolean);
     if (parts.length >= 2) {
-      const index = parts.findIndex(p => p.replace(/\D/g, "").length >= 7);
-      if (index >= 0) {
-        return { name: parts.filter((_, i) => i !== index).join(" "), phone: parts[index] };
-      }
+      const index = parts.findIndex(part => part.replace(/\D/g, "").length >= 7);
+      if (index >= 0) return { name: parts.filter((_, i) => i !== index).join(" "), phone: parts[index] };
     }
     return null;
   }
 
   async function readFile(file) {
     const ext = file.name.toLowerCase().split(".").pop();
-
-    if (ext === "txt" || ext === "csv") return await file.text();
-
-    if (ext === "docx") {
-      const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-      return result.value;
-    }
-
+    if (ext === "txt" || ext === "csv") return file.text();
+    if (ext === "docx") return (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
     if (ext === "pdf") {
       const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
       const pages = [];
-      for (let n = 1; n <= pdf.numPages; n++) {
-        const page = await pdf.getPage(n);
+      for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+        const page = await pdf.getPage(pageNo);
         const content = await page.getTextContent();
         const lines = new Map();
-
         for (const item of content.items) {
           if (!item.str?.trim()) continue;
           const y = Math.round(item.transform[5]);
           lines.set(y, [...(lines.get(y) || []), item.str]);
         }
-
-        pages.push(
-          [...lines.entries()]
-            .sort((a, b) => b[0] - a[0])
-            .map(([, words]) => words.join(" "))
-            .join("\n")
-        );
+        pages.push([...lines.entries()].sort((a, b) => b[0] - a[0]).map(([, words]) => words.join(" ")).join("\n"));
       }
       return pages.join("\n");
     }
-
-    throw new Error("Unsupported file type: " + ext);
+    throw new Error(`Unsupported file type: ${ext}`);
   }
 
   async function importFiles(files) {
     if (!files?.length) return;
-    message.textContent = "Reading file…";
+    message.textContent = "Opening your guest list…";
     let added = 0;
-
     try {
       for (const file of files) {
         const text = await readFile(file);
@@ -253,136 +275,93 @@
           const pair = splitLine(line);
           if (!pair) continue;
           const parsed = parsePhone(pair.phone);
-          guests.push({
-            id: crypto.randomUUID(),
-            name: pair.name,
-            phone: parsed.phone,
-            sourcePhone: pair.phone,
-            country: parsed.status === "ready"
-              ? parsePhoneNumberFromString(parsed.phone)?.country || ""
-              : "",
-            status: parsed.status,
-            reason: parsed.reason
-          });
+          guests.push({ id: crypto.randomUUID(), name: pair.name, sourcePhone: pair.phone, phone: parsed.phone, country: parsed.country, status: parsed.status, reason: parsed.reason });
           added++;
         }
       }
-      message.textContent = added
-        ? `Found ${added} possible guest${added === 1 ? "" : "s"}. Review any flagged numbers.`
-        : "No name and phone pairs found. Check the document layout and try again.";
+      message.textContent = added ? `Found ${added} guest${added === 1 ? "" : "s"}. Check the country for any number without an international prefix.` : "No name and number pairs found. Check that each guest's name and number are on the same line or separated into columns.";
     } catch (error) {
-      message.textContent = "Could not read file: " + error.message;
+      message.textContent = `Could not read file: ${error.message}`;
     }
-
     fileInput.value = "";
     render();
   }
 
   function render() {
-    const readyCount = guests.filter(g => g.status === "ready").length;
-    const reviewCount = guests.length - readyCount;
-    summary.textContent = `${guests.length} guests · ${readyCount} ready · ${reviewCount} to review`;
-    exportButton.disabled = readyCount === 0;
-
+    const ready = guests.filter(guest => guest.status === "ready").length;
+    const review = guests.length - ready;
+    summary.innerHTML = `<span class="count">${guests.length} guest${guests.length === 1 ? "" : "s"}</span><span class="dot"></span><span>${ready} ready</span><span class="dot"></span><span>${review} to review</span>`;
+    exportButton.disabled = ready === 0;
     if (!guests.length) {
-      body.innerHTML = '<tr><td class="empty" colspan="5">Your guest list will appear here after upload.</td></tr>';
+      rows.innerHTML = '<tr><td class="empty" colspan="5">Your guests will appear here. Ready when you are! 🎉</td></tr>';
       return;
     }
 
-    body.replaceChildren(...guests.map(guest => {
+    rows.replaceChildren(...guests.map(guest => {
       const row = document.createElement("tr");
-
       const nameCell = document.createElement("td");
-      const nameInput = document.createElement("input");
-      nameInput.value = guest.name;
-      nameInput.setAttribute("aria-label", "Guest name");
-      nameInput.addEventListener("input", () => { guest.name = nameInput.value; });
-      nameCell.append(nameInput);
+      const name = document.createElement("input");
+      name.className = "guest-name";
+      name.value = guest.name;
+      name.setAttribute("aria-label", "Guest name");
+      name.addEventListener("input", () => { guest.name = name.value; });
+      nameCell.append(name);
 
       const phoneCell = document.createElement("td");
-      const phoneInput = document.createElement("input");
-      phoneInput.value = guest.phone;
-      phoneInput.setAttribute("aria-label", "Phone number");
-      phoneInput.addEventListener("change", () => {
-        const parsed = parsePhone(phoneInput.value);
-        guest.phone = parsed.phone;
-        guest.sourcePhone = phoneInput.value;
+      const phone = document.createElement("input");
+      phone.className = "phone-input";
+      phone.value = guest.phone;
+      phone.setAttribute("aria-label", "Phone number");
+      phone.addEventListener("change", () => {
+        guest.sourcePhone = phone.value;
         guest.country = "";
-        guest.status = parsed.status;
-        guest.reason = parsed.reason;
+        const parsed = parsePhone(phone.value);
+        Object.assign(guest, { phone: parsed.phone, status: parsed.status, reason: parsed.reason, country: parsed.country });
         render();
       });
       const note = document.createElement("span");
       note.className = "note";
       note.textContent = guest.reason;
-      phoneCell.append(phoneInput, note);
+      phoneCell.append(phone, note);
 
       const countryCell = document.createElement("td");
-      const countryInput = document.createElement("input");
-      countryInput.setAttribute("aria-label", `Country code for ${guest.name || "guest"}`);
-      countryInput.setAttribute("list", "country-options");
-      countryInput.placeholder = "Choose country…";
-      countryInput.value = guest.country
-        ? countryChoices.find(choice => choice.country === guest.country)?.label || ""
-        : "";
-      countryInput.addEventListener("change", () => {
-        const selectedCountry = countryLookup.get(countryInput.value);
-        if (!selectedCountry) {
-          guest.country = "";
-          const parsed = parsePhone(guest.sourcePhone);
-          guest.phone = parsed.phone;
-          guest.status = parsed.status;
-          guest.reason = parsed.reason;
-          render();
-          return;
-        }
-
-        const original = clean(guest.sourcePhone);
+      const country = document.createElement("input");
+      country.className = "country-input";
+      country.setAttribute("list", "country-options");
+      country.setAttribute("aria-label", `Country code for ${guest.name || "guest"}`);
+      country.placeholder = "Choose country…";
+      country.value = countries.find(item => item.country === guest.country)?.label || "";
+      country.addEventListener("change", () => {
+        const selected = countryByLabel.get(country.value);
+        const original = compact(guest.sourcePhone);
         if (original.startsWith("+") || original.startsWith("00")) {
-          const explicit = parsePhone(guest.sourcePhone);
-          guest.phone = explicit.phone;
-          guest.status = explicit.status;
-          guest.country = parsePhoneNumberFromString(explicit.phone)?.country || "";
-          guest.reason = explicit.reason;
-          render();
-          return;
-        }
-
-        const nationalDigits = original.replace(/\D/g, "");
-        const parsed = parsePhoneNumberFromString(nationalDigits, selectedCountry);
-        guest.country = selectedCountry;
-
-        if (!parsed?.isValid()) {
-          guest.phone = guest.sourcePhone;
-          guest.status = "review";
-          guest.reason = `Not a valid ${displayNames.of(selectedCountry)} number`;
+          const parsed = parsePhone(guest.sourcePhone);
+          Object.assign(guest, { phone: parsed.phone, status: parsed.status, reason: parsed.reason, country: parsed.country });
+        } else if (!selected) {
+          const parsed = parsePhone(guest.sourcePhone);
+          Object.assign(guest, { phone: parsed.phone, status: parsed.status, reason: parsed.reason, country: "" });
         } else {
-          guest.phone = parsed.number;
-          guest.status = "ready";
-          guest.reason = `Country selected: +${parsed.countryCallingCode}`;
+          const parsed = parsePhone(guest.sourcePhone, selected);
+          Object.assign(guest, { phone: parsed.phone, status: parsed.status, reason: parsed.reason, country: selected });
         }
-
         render();
       });
-      countryCell.append(countryInput);
+      countryCell.append(country);
 
       const statusCell = document.createElement("td");
       const badge = document.createElement("span");
-      badge.className = "status " + (guest.status === "ready" ? "ready" : "review");
-      badge.textContent = guest.status === "ready" ? "Ready" : "Review";
+      badge.className = `status ${guest.status === "ready" ? "ready" : "review"}`;
+      badge.textContent = guest.status === "ready" ? "✓ Ready" : "Review";
       statusCell.append(badge);
 
       const removeCell = document.createElement("td");
       const remove = document.createElement("button");
       remove.className = "remove";
+      remove.type = "button";
       remove.textContent = "×";
-      remove.setAttribute("aria-label", "Remove guest");
-      remove.addEventListener("click", () => {
-        guests = guests.filter(g => g.id !== guest.id);
-        render();
-      });
+      remove.setAttribute("aria-label", `Remove ${guest.name || "guest"}`);
+      remove.addEventListener("click", () => { guests = guests.filter(item => item.id !== guest.id); render(); });
       removeCell.append(remove);
-
       row.append(nameCell, phoneCell, countryCell, statusCell, removeCell);
       return row;
     }));
@@ -390,38 +369,23 @@
 
   document.querySelector("#choose").addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", event => importFiles(event.target.files));
-
-  dropzone.addEventListener("dragover", event => {
-    event.preventDefault();
-    dropzone.classList.add("drag");
-  });
+  dropzone.addEventListener("dragover", event => { event.preventDefault(); dropzone.classList.add("drag"); });
   dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
-  dropzone.addEventListener("drop", event => {
-    event.preventDefault();
-    dropzone.classList.remove("drag");
-    importFiles(event.dataTransfer.files);
-  });
+  dropzone.addEventListener("drop", event => { event.preventDefault(); dropzone.classList.remove("drag"); importFiles(event.dataTransfer.files); });
 
   exportButton.addEventListener("click", () => {
-    const valid = guests.filter(g => g.status === "ready" && g.name.trim());
+    const valid = guests.filter(guest => guest.status === "ready" && guest.name.trim());
     if (!valid.length) return;
-
-    const sheet = XLSX.utils.aoa_to_sheet([
-      ["Name", "Phone"],
-      ...valid.map(g => [g.name.trim(), g.phone])
-    ]);
-    sheet["!cols"] = [{ wch: 32 }, { wch: 24 }];
-
+    const sheet = XLSX.utils.aoa_to_sheet([["Name", "Phone (E.164)"], ...valid.map(guest => [guest.name.trim(), guest.phone])]);
+    sheet["!cols"] = [{ wch: 32 }, { wch: 26 }];
     for (let r = 1; r <= valid.length; r++) {
       const cell = sheet[XLSX.utils.encode_cell({ r, c: 1 })];
       if (cell) cell.t = "s";
     }
-
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, "Guest List");
-    XLSX.writeFile(workbook, "guest-list.xlsx");
+    XLSX.writeFile(workbook, "GLS-guest-list.xlsx");
   });
 </script>
 </body>
 </html>
-``)
