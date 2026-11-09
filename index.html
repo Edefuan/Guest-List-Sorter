@@ -84,7 +84,8 @@
   import * as XLSX from "https://esm.sh/xlsx@0.18.5";
   import {
   parsePhoneNumberFromString,
-  getCountries
+  getCountries,
+  getCountryCallingCode
 } from "https://esm.sh/libphonenumber-js@1.11.20";
   import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
   import mammoth from "https://esm.sh/mammoth@1.9.0";
@@ -100,11 +101,28 @@
   const summary = document.querySelector("#summary");
   let guests = [];
 
+  // Build one shared country list. It is used only when a number has no
+  // international prefix; there is deliberately no file-wide default region.
+  const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+  const countryChoices = getCountries().map(country => ({
+    country,
+    label: `${displayNames.of(country)} (+${getCountryCallingCode(country)})`
+  }));
+  const countryLookup = new Map(countryChoices.map(choice => [choice.label, choice.country]));
+  const countryList = document.createElement("datalist");
+  countryList.id = "country-options";
+  for (const choice of countryChoices) {
+    const option = document.createElement("option");
+    option.value = choice.label;
+    countryList.append(option);
+  }
+  document.body.append(countryList);
+
   function clean(value) {
     return String(value ?? "").replace(/\s+/g, " ").trim();
   }
 
-  function parsePhone(raw) {
+  function parsePhone(raw, selectedCountry = "") {
   const input = clean(raw).replace(/[().\s-]/g, "");
   if (!input) {
     return { phone: "", status: "review", reason: "Enter a number" };
@@ -135,40 +153,32 @@
     };
   }
 
-  // For numbers without a country code, check all supported numbering plans.
-  // Accept a result only when exactly one distinct E.164 number is valid.
-  const matches = new Map();
-
-  for (const country of getCountries()) {
-    const parsed = parsePhoneNumberFromString(input, country);
-
+  if (selectedCountry) {
+    const parsed = parsePhoneNumberFromString(input, selectedCountry);
     if (parsed?.isValid()) {
-      matches.set(parsed.number, parsed);
+      return {
+        phone: parsed.number,
+        status: "ready",
+        reason: `Country selected: +${parsed.countryCallingCode}`
+      };
     }
   }
 
-  if (matches.size === 1) {
-    const parsed = [...matches.values()][0];
-
+  // Some files omit the + sign while retaining the international calling code.
+  // Accept that only if the resulting international number validates.
+  const bareInternational = parsePhoneNumberFromString(`+${input}`);
+  if (bareInternational?.isValid()) {
     return {
-      phone: parsed.number,
+      phone: bareInternational.number,
       status: "ready",
-      reason: `Country code +${parsed.countryCallingCode} detected from number`
-    };
-  }
-
-  if (matches.size > 1) {
-    return {
-      phone: input,
-      status: "review",
-      reason: "Could match more than one country; add the country code"
+      reason: `Country code +${bareInternational.countryCallingCode} detected`
     };
   }
 
   return {
     phone: input,
     status: "review",
-    reason: "No country code and no unique country match"
+    reason: "No country code; choose the country for this number"
   };
 }
 
@@ -308,6 +318,29 @@
       note.className = "note";
       note.textContent = guest.reason;
       phoneCell.append(phoneInput, note);
+
+      if (guest.status === "review" && !guest.phone.startsWith("+")) {
+        const countryInput = document.createElement("input");
+        countryInput.setAttribute("aria-label", "Choose country for this phone number");
+        countryInput.setAttribute("list", "country-options");
+        countryInput.placeholder = "Type country to format number…";
+        countryInput.style.cssText = "display:block;margin:7px 8px 0;padding:6px 8px;border:1px solid #cbd8d1;border-radius:5px;background:white;color:#29483a;font:inherit;font-size:12px;max-width:100%;";
+        countryInput.addEventListener("change", () => {
+          const selectedCountry = countryLookup.get(countryInput.value);
+          if (!selectedCountry) return;
+          const parsed = parsePhoneNumberFromString(guest.phone, selectedCountry);
+          if (!parsed?.isValid()) {
+            guest.reason = "This number is not valid for the selected country";
+            render();
+            return;
+          }
+          guest.phone = parsed.number;
+          guest.status = "ready";
+          guest.reason = `Country selected: +${parsed.countryCallingCode}`;
+          render();
+        });
+        phoneCell.append(countryInput);
+      }
 
       const statusCell = document.createElement("td");
       const badge = document.createElement("span");
