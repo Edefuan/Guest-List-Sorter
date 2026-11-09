@@ -344,72 +344,77 @@
   }
 
   async function readFile(file) {
-    if (ext === "xlsx" || ext === "xls") {
-  const workbook = XLSX.read(await file.arrayBuffer(), {
-    type: "array",
-    cellDates: true
-  });
+  const ext = file.name.toLowerCase().split(".").pop();
 
-  const lines = [];
+  if (ext === "txt" || ext === "csv") {
+    return file.text();
+  }
 
-  for (const sheetName of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(sheet, {
-      header: 1,
-      raw: false,
-      defval: "",
-      blankrows: false
+  if (ext === "xlsx" || ext === "xls") {
+    const workbook = XLSX.read(await file.arrayBuffer(), {
+      type: "array",
+      cellDates: true
     });
 
-    for (const row of data) {
-      const cells = row.map(value => clean(value));
-      if (cells.some(Boolean)) lines.push(cells.join("\t"));
-    }
-  }
+    const lines = [];
 
-  return lines.join("\n");
-}
-    const ext = file.name.toLowerCase().split(".").pop();
-
-    if (ext === "txt" || ext === "csv") return file.text();
-
-    if (ext === "docx") {
-      const result = await mammoth.extractRawText({
-        arrayBuffer: await file.arrayBuffer()
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        raw: false,
+        defval: "",
+        blankrows: false
       });
-      return result.value;
-    }
 
-    if (ext === "pdf") {
-      const pdf = await pdfjsLib.getDocument({
-        data: await file.arrayBuffer()
-      }).promise;
-      const pages = [];
-
-      for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
-        const page = await pdf.getPage(pageNo);
-        const content = await page.getTextContent();
-        const lines = new Map();
-
-        for (const item of content.items) {
-          if (!item.str?.trim()) continue;
-          const y = Math.round(item.transform[5]);
-          lines.set(y, [...(lines.get(y) || []), item.str]);
+      for (const row of data) {
+        const cells = row.map(value => clean(value));
+        if (cells.some(Boolean)) {
+          lines.push(cells.join("\t"));
         }
-
-        pages.push(
-          [...lines.entries()]
-            .sort((a, b) => b[0] - a[0])
-            .map(([, words]) => words.join(" "))
-            .join("\n")
-        );
       }
-      return pages.join("\n");
     }
 
-    throw new Error(`Unsupported file type: ${ext}`);
+    return lines.join("\n");
   }
 
+  if (ext === "docx") {
+    const result = await mammoth.extractRawText({
+      arrayBuffer: await file.arrayBuffer()
+    });
+    return result.value;
+  }
+
+  if (ext === "pdf") {
+    const pdf = await pdfjsLib.getDocument({
+      data: await file.arrayBuffer()
+    }).promise;
+    const pages = [];
+
+    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+      const page = await pdf.getPage(pageNo);
+      const content = await page.getTextContent();
+      const lines = new Map();
+
+      for (const item of content.items) {
+        if (!item.str?.trim()) continue;
+        const y = Math.round(item.transform[5]);
+        lines.set(y, [...(lines.get(y) || []), item.str]);
+      }
+
+      pages.push(
+        [...lines.entries()]
+          .sort((a, b) => b[0] - a[0])
+          .map(([, words]) => words.join(" "))
+          .join("\n")
+      );
+    }
+
+    return pages.join("\n");
+  }
+
+  throw new Error(`Unsupported file type: ${ext}`);
+}
   async function importFiles(files) {
     if (!files?.length) return;
     message.textContent = "Opening your guest list…";
