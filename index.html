@@ -1,224 +1,79 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Guest List Sorter</title>
-  <style>
-    body { font-family: Arial, sans-serif; background:#f4f6f8; color:#18212b; margin:0; }
-    main { max-width:900px; margin:40px auto; padding:24px; background:white; border-radius:16px; }
-    h1 { margin-top:0; }
-    .drop { border:2px dashed #9aa8b5; border-radius:12px; padding:28px; text-align:center; }
-    input[type=file] { display:block; margin:14px auto; max-width:100%; }
-    button { padding:10px 16px; border:0; border-radius:8px; background:#1769d2; color:white; cursor:pointer; margin:8px 6px 8px 0; }
-    button.secondary { background:#44515f; }
-    button.remove { background:#b42318; padding:6px 10px; }
-    button:disabled { opacity:.5; cursor:wait; }
-    #status { min-height:24px; color:#44515f; }
-    .table-wrap { overflow-x:auto; }
-    table { width:100%; border-collapse:collapse; margin-top:18px; }
-    th, td { border-bottom:1px solid #dce2e8; padding:10px; text-align:left; }
-    th { background:#f4f6f8; }
-    td input { box-sizing:border-box; width:100%; padding:8px; border:1px solid #cbd3dc; border-radius:6px; }
-    .note { color:#596673; font-size:.92rem; line-height:1.5; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guest List — document to spreadsheet</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+:root{color-scheme:light;--ink:#202b43;--muted:#778198;--purple:#635bdb;--line:#e7e9f0;--bg:#f7f8fc;--white:#fff;--green:#1f996b;font-family:'DM Sans',sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);min-height:100vh}.app-shell{max-width:980px;padding:0 28px 50px;margin:0 auto}.topbar{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eaecf2}.brand{display:flex;gap:10px;align-items:center;color:var(--ink);font-family:Manrope,sans-serif;font-size:17px;font-weight:800;text-decoration:none}.brand-mark{height:31px;width:31px;border-radius:10px;background:#6e67e4;color:white;display:grid;place-items:center;font-size:17px}.privacy{font-size:12px;color:#747e91;display:flex;gap:8px;align-items:center}.privacy-dot{height:7px;width:7px;border-radius:50%;background:#37b984}.intro{max-width:615px;margin:56px auto 34px;text-align:center}.eyebrow{font-size:10px;font-weight:700;letter-spacing:1.5px;color:#827ce5}.intro h1{font-family:Manrope,sans-serif;font-size:42px;line-height:1.15;letter-spacing:-1.8px;margin:14px 0;font-weight:800}.intro h1 span{color:var(--purple)}.intro p{font-size:15px;line-height:1.7;color:#727d92;max-width:520px;margin:0 auto}.workspace{max-width:760px;margin:0 auto}.controls-row{display:flex;align-items:center;gap:11px;margin:0 4px 12px;font-size:12px;color:#69758b}.controls-row label{font-weight:600}.controls-row select{font:600 12px 'DM Sans',sans-serif;border:1px solid #dfe2ed;border-radius:8px;background:white;color:#344057;padding:8px 32px 8px 11px}.format-hint{margin-left:auto}.format-hint strong{color:#4f58a8}.dropzone{min-height:202px;background:white;border:1.5px dashed #cbd0e2;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:.18s}.dropzone:hover,.dropzone.is-over{border-color:var(--purple);background:#fbfaff}.dropzone:focus-visible{outline:3px solid #635bdb55;outline-offset:3px}.upload-icon{width:43px;height:43px;border-radius:13px;background:#f0efff;display:grid;place-items:center;margin-bottom:12px}.upload-icon svg{height:23px;width:23px;fill:none;stroke:#6f68df;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.drop-title{font-family:Manrope,sans-serif;font-weight:700;font-size:15px}.drop-subtitle{font-size:12px;color:#8790a2;margin-top:5px}.drop-subtitle span{color:#635bdb;font-weight:700}.file-types{margin-top:13px;color:#a0a7b6;font-size:10px}.file-list{display:grid;gap:6px;margin-top:8px}.file-item{background:white;border:1px solid var(--line);border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:9px;font-size:11px}.file-check{background:#eaf8f2;color:var(--green);font-weight:700;border-radius:50%;width:18px;height:18px;display:grid;place-items:center;font-size:10px}.file-error{background:#fff2e9;color:#cb7844}.file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.file-state{color:#9199a9;font-size:10px}.notice{min-height:18px;font-size:11px;color:#758095;margin:8px 3px}.notice.success{color:#348563}.notice.warning{color:#bc7147}.results{max-width:760px;margin:45px auto 0}.results-heading{display:flex;align-items:end;justify-content:space-between}.results-heading h2{font-family:Manrope,sans-serif;font-size:24px;margin:6px 0 0}.row-count{font-size:11px;color:#778198;background:#fff;border:1px solid var(--line);border-radius:20px;padding:6px 10px}.review-note{font-size:12px;color:#808a9d;margin:9px 0 17px}.table-wrap{overflow-x:auto;background:white;border:1px solid var(--line);border-radius:12px}.table-wrap table{width:100%;border-collapse:collapse}.table-wrap th{text-align:left;padding:12px 14px;font-size:10px;text-transform:uppercase;letter-spacing:.75px;color:#8891a3;background:#fbfbfd;border-bottom:1px solid var(--line)}.table-wrap td{padding:8px 14px;border-bottom:1px solid #f0f1f5}.table-wrap tr:last-child td{border-bottom:0}.col-index{font-size:9px;color:#adb4c4;margin-right:7px}.e164-pill{font-size:9px;text-transform:none;color:#615bc5;background:#f0efff;padding:3px 6px;border-radius:5px;margin-left:5px}.name-cell{width:49%}.row-number{font-size:10px;color:#a2aabb;width:27px;display:inline-block}.table-wrap td input{width:calc(100% - 30px);border:1px solid transparent;border-radius:5px;padding:8px 7px;color:#354057;font:500 12px 'DM Sans',sans-serif;background:transparent;outline:none}.table-wrap td input:focus{border-color:#c9c5ff;background:#fbfaff}.table-wrap td input::placeholder{color:#b2b8c5}.table-wrap td .phone-input{width:100%;font-variant-numeric:tabular-nums}.action-head,.action-cell{width:42px;text-align:center}.remove-row{border:0;background:transparent;color:#adb3c0;font-size:19px;cursor:pointer;padding:5px 8px}.remove-row:hover{color:#c65959}.empty-state{padding:32px;text-align:center;color:#8790a2;font-size:12px}.table-footer{display:flex;justify-content:space-between;align-items:center;padding:10px 3px;color:#9aa2b1;font-size:10px}.text-button{border:0;background:none;color:#635bdb;font:700 11px 'DM Sans',sans-serif;cursor:pointer;padding:6px 0}.export-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;background:#f0efff;border:1px solid #e2e0ff;border-radius:12px;margin-top:18px;padding:16px 18px}.export-bar>div:first-child{display:flex;flex-direction:column;gap:4px}.export-bar strong{font-family:Manrope,sans-serif;font-size:12px}.export-bar span{font-size:10px;color:#777e92}.export-actions{display:flex;gap:8px;flex-shrink:0}.button{border-radius:8px;padding:10px 13px;font:700 11px 'DM Sans',sans-serif;cursor:pointer}.button.secondary{border:1px solid #d6d4f4;color:#524bb9;background:white}.button.primary{border:1px solid #625bd1;color:white;background:#635bdb}.button.primary span{font-size:15px;margin-right:3px}.copy-status{text-align:right;min-height:17px;font-size:10px;color:#318565;margin:6px 3px 0}footer{border-top:1px solid #eaecf2;max-width:760px;margin:42px auto 0;padding-top:15px;display:flex;justify-content:space-between;color:#a0a7b4;font-size:10px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:650px){.app-shell{padding:0 17px 32px}.topbar{height:62px}.privacy{font-size:10px}.intro{margin:39px auto 26px}.intro h1{font-size:35px}.intro p{font-size:13px}.dropzone{min-height:185px}.controls-row{flex-wrap:wrap}.format-hint{width:100%;margin:0 0 2px}.results{margin-top:35px}.results-heading h2{font-size:22px}.export-bar{align-items:stretch;flex-direction:column}.export-actions .button{flex:1}.table-footer{align-items:flex-start;gap:8px;flex-direction:column}footer{gap:12px;line-height:1.5}footer span:last-child{text-align:right}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/libphonenumber-js@1.11.9/bundle/libphonenumber-js.min.js"></script>
 </head>
 <body>
-<main>
-  <h1>Guest List Sorter</h1>
-  <p>Upload a guest list and review the names and phone numbers before copying them into Excel.</p>
-
-  <div class="drop">
-    <strong>Select a PDF, Word document, or text file</strong>
-    <input id="file" type="file" accept=".pdf,.docx,.txt">
-    <button id="process">Read document</button>
-  </div>
-
-  <p id="status" aria-live="polite"></p>
-
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Name</th><th>Phone number</th><th></th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
-
-  <button id="add" class="secondary">Add a row</button>
-  <button id="copy">Copy for Excel</button>
-  <button id="download">Download CSV</button>
-
-  <p class="note">
-    Your file is processed in this browser and is not uploaded to this website.
-    Please check the results: scanned PDFs and unusual layouts may need manual corrections.
-  </p>
+<main class="app-shell">
+<header class="topbar">
+<a class="brand" href="#"><span class="brand-mark">G</span><span>Guest List</span></a>
+<span class="privacy"><span class="privacy-dot"></span> Files stay on this device</span>
+</header>
+<section class="intro">
+<div class="eyebrow">DOCUMENT TO SPREADSHEET</div>
+<h1>Your guest list,<br><span>ready for Excel.</span></h1>
+<p>Drop in a document. We’ll find names and phone numbers, format the numbers, and arrange everything into two tidy columns.</p>
+</section>
+<section class="workspace" aria-label="Guest list converter">
+<div class="controls-row">
+<label for="country">Numbers are from</label>
+<select id="country" aria-label="Default country for phone numbers">
+<option value="GB" selected>United Kingdom (+44)</option><option value="US">United States (+1)</option><option value="CA">Canada (+1)</option><option value="AU">Australia (+61)</option><option value="NZ">New Zealand (+64)</option><option value="IE">Ireland (+353)</option><option value="IN">India (+91)</option><option value="FR">France (+33)</option><option value="DE">Germany (+49)</option><option value="ES">Spain (+34)</option><option value="IT">Italy (+39)</option><option value="NL">Netherlands (+31)</option><option value="ZA">South Africa (+27)</option>
+</select><span class="format-hint">Output format: <strong>E.164</strong></span>
+</div>
+<div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose or drop files to upload">
+<input id="file-input" type="file" accept=".pdf,.docx,.txt,.csv,.tsv,.html,.htm" multiple hidden>
+<div class="upload-icon"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15.5v3A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-3"/></svg></div>
+<div class="drop-title">Drop your files here</div><div class="drop-subtitle">or <span>browse files</span> from your device</div><div class="file-types">PDF · Word (.docx) · Text · CSV</div>
+</div>
+<div id="file-list" class="file-list" aria-live="polite"></div><div id="notice" class="notice" role="status" aria-live="polite"></div>
+</section>
+<section id="results" class="results" hidden>
+<div class="results-heading"><div><div class="eyebrow">YOUR EXTRACTED GUESTS</div><h2>Review your list</h2></div><div id="row-count" class="row-count">0 guests</div></div>
+<p class="review-note">Check the results before exporting. You can click any cell to make a correction.</p>
+<div class="table-wrap"><table id="guest-table"><thead><tr><th><span class="col-index">01</span> Name</th><th><span class="col-index">02</span> Phone number <span class="e164-pill">E.164</span></th><th class="action-head"><span class="sr-only">Remove row</span></th></tr></thead><tbody id="guest-rows"></tbody></table><div id="empty-state" class="empty-state" hidden>No matching names and phone numbers found yet. Try another file or add a guest below.</div></div>
+<div class="table-footer"><button id="add-row" class="text-button" type="button">＋ Add a guest</button><span>Names and numbers can be edited directly in the table.</span></div>
+<div class="export-bar"><div><strong>Ready for your spreadsheet?</strong><span>One guest per row, with names and numbers in separate columns.</span></div><div class="export-actions"><button id="copy-button" class="button secondary" type="button">Copy for Excel</button><button id="csv-button" class="button primary" type="button"><span>↓</span> Download CSV</button></div></div><div id="copy-status" class="copy-status" aria-live="polite"></div>
+</section>
+<footer><span>Simple, private, and free to use.</span><span>Check each number before contacting guests.</span></footer>
 </main>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://unpkg.com/mammoth@1.9.0/mammoth.browser.min.js"></script>
-<script>
- if (window.pdfjsLib) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-}
-
-  const fileInput = document.getElementById("file");
-  const statusBox = document.getElementById("status");
-  const rows = document.getElementById("rows");
-
-  function addRow(name = "", phone = "") {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><input aria-label="Name" value=""></td>
-      <td><input aria-label="Phone number" value=""></td>
-      <td><button class="remove" type="button">Remove</button></td>`;
-    tr.querySelectorAll("input")[0].value = name;
-    tr.querySelectorAll("input")[1].value = phone;
-    tr.querySelector(".remove").onclick = () => tr.remove();
-    rows.appendChild(tr);
-  }
-
-  async function readPdf(file) {
-    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-    const pageLines = [];
-    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
-      const page = await pdf.getPage(pageNo);
-      const content = await page.getTextContent();
-      let line = "";
-      for (const item of content.items) {
-        line += item.str + (item.hasEOL ? "\n" : " ");
-        if (item.hasEOL) {
-          pageLines.push(line.trim());
-          line = "";
-        }
-      }
-      if (line.trim()) pageLines.push(line.trim());
-    }
-    return pageLines.join("\n");
-  }
-
-  async function readFile(file) {
-    const extension = file.name.split(".").pop().toLowerCase();
-    if (extension === "pdf") return readPdf(file);
-    if (extension === "docx") {
-      const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-      return result.value;
-    }
-    if (extension === "txt") return file.text();
-    throw new Error("Please choose a PDF, .docx, or .txt file.");
-  }
-
-  unction normalizePhone(raw) {
-  const hadPlus = raw.trim().startsWith("+");
-  let digits = raw.replace(/\D/g, "");
-
-  // Remove a table row number accidentally joined to a Nigerian number.
-  if (digits.length === 12 && /^[1-9]0/.test(digits)) {
-    digits = digits.slice(1);
-  }
-
-  if (digits.startsWith("234") && digits.length === 13) {
-    return "+" + digits;
-  }
-  if (digits.length === 11 && digits.startsWith("0")) {
-    return "+234" + digits.slice(1);
-  }
-  if (digits.length === 10) {
-    return "+234" + digits;
-  }
-  if (hadPlus && digits.length >= 8 && digits.length <= 15) {
-    return "+" + digits;
-  }
-
-  return raw.trim();
-}
-
-function findRows(text) {
-  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const found = [];
-  const phonePattern = /\+?\d[\d(). -]{8,}\d/g;
-
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-    const line = lines[lineIndex];
-    const matches = [...line.matchAll(phonePattern)];
-    let previousEnd = 0;
-
-    for (const match of matches) {
-      let name = line.slice(previousEnd, match.index)
-        .replace(/\b(?:Merlot|Violet)\s+table\s+\d*\b/ig, "")
-        .replace(/\b(?:Olaitan|Idera)\s+Family\s+table\b/ig, "")
-        .replace(/\bName\s+Phone\s+number\b/ig, "")
-        .replace(/[|,:;\t]+/g, " ")
-        .replace(/\s+\d+\s*$/, "")
-        .trim();
-
-      if (!name) {
-        for (let previous = lineIndex - 1; previous >= Math.max(0, lineIndex - 2); previous--) {
-          const candidate = lines[previous];
-          if (!/\d{10,}/.test(candidate) &&
-              !/\btable\b|\bphone\b|\bname\b/i.test(candidate)) {
-            name = candidate;
-            break;
-          }
-        }
-      }
-
-      found.push({ name, phone: normalizePhone(match[0]) });
-      previousEnd = match.index + match[0].length;
-    }
-  }
-
-  return found;
-}
-
-
-21:20
-    const file = fileInput.files[0];
-    if (!file) {
-      statusBox.textContent = "Choose a file first.";
-      return;
-    }
-
-    statusBox.textContent = "Reading document…";
-    try {
-      const text = await readFile(file);
-      const results = findRows(text);
-      rows.innerHTML = "";
-      results.forEach(item => addRow(item.name, item.phone));
-      statusBox.textContent = results.length
-        ? `Found ${results.length} possible phone number(s). Review and edit the rows.`
-        : "I couldn't find phone numbers. Try a text-based document or enter rows manually.";
-    } catch (error) {
-      statusBox.textContent = "Couldn't read that file: " + error.message;
-    }
-  };
-
-  document.getElementById("add").onclick = () => addRow();
-
-  function getTableData() {
-    return [...rows.querySelectorAll("tr")].map(tr =>
-      [...tr.querySelectorAll("input")].map(input => input.value.trim())
-    );
-  }
-
-  document.getElementById("copy").onclick = async () => {
-    const data = [["Name", "Phone number"], ...getTableData()]
-      .map(row => row.join("\t")).join("\n");
-    await navigator.clipboard.writeText(data);
-    statusBox.textContent = "Copied. Paste into Excel.";
-  };
-
-  document.getElementById("download").onclick = () => {
-    const quote = value => '"' + value.replaceAll('"', '""') + '"';
-    const csv = [["Name", "Phone number"], ...getTableData()]
-      .map(row => row.map(quote).join(",")).join("\r\n");
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    link.download = "guest-list.csv";
-    link.click();
-    URL.revokeObjectURL(link.href);
-  };
-
-  addRow();
+<script type="module">
+import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
+const $=s=>document.querySelector(s),dropzone=$('#dropzone'),fileInput=$('#file-input'),fileList=$('#file-list'),notice=$('#notice'),results=$('#results'),guestRows=$('#guest-rows'),country=$('#country');let guests=[];
+dropzone.addEventListener('click',e=>{if(!e.target.closest('button'))fileInput.click()});
+dropzone.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fileInput.click()}});
+fileInput.addEventListener('change',()=>handleFiles([...fileInput.files]));
+for(const n of ['dragenter','dragover'])dropzone.addEventListener(n,e=>{e.preventDefault();dropzone.classList.add('is-over')});
+for(const n of ['dragleave','drop'])dropzone.addEventListener(n,e=>{e.preventDefault();dropzone.classList.remove('is-over')});
+dropzone.addEventListener('drop',e=>handleFiles([...e.dataTransfer.files]));
+country.addEventListener('change',()=>{guests=guests.map(g=>({...g,phone:normalizePhone(g.rawPhone||g.phone)}));renderRows()});
+$('#add-row').addEventListener('click',()=>{guests.push({name:'',phone:'',rawPhone:''});renderRows();guestRows.lastElementChild?.querySelector('[data-field="name"]')?.focus()});
+$('#copy-button').addEventListener('click',copyForExcel);$('#csv-button').addEventListener('click',downloadCsv);
+async function handleFiles(files){if(!files.length)return;fileList.replaceChildren();notice.textContent='Reading your files…';notice.className='notice';results.hidden=false;const extracted=[],errors=[];for(const file of files){const item=document.createElement('div');item.className='file-item';item.innerHTML='<span class="file-check">✓</span><span class="file-name"></span><span class="file-state">Reading</span>';item.querySelector('.file-name').textContent=file.name;fileList.append(item);try{const parsed=extractGuests(await readFile(file));extracted.push(...parsed);item.querySelector('.file-state').textContent=`${parsed.length} found`}catch(error){console.error(error);item.querySelector('.file-check').textContent='!';item.querySelector('.file-check').classList.add('file-error');item.querySelector('.file-state').textContent='Could not read';errors.push(`${file.name}: ${error.message}`)}}guests=dedupe([...guests,...extracted]);renderRows();notice.textContent=errors.length?errors.join(' · '):`Done — ${extracted.length} guest${extracted.length===1?'':'s'} found. Please review the list.`;notice.className=errors.length?'notice warning':'notice success';fileInput.value=''}
+async function readFile(file){const ext=file.name.split('.').pop().toLowerCase();if(ext==='pdf'){const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;const pages=[];for(let n=1;n<=pdf.numPages;n++){const page=await pdf.getPage(n),content=await page.getTextContent();pages.push(content.items.map(i=>i.str).join(' '))}const text=pages.join('\n');if(!text.trim())throw Error('This PDF has no selectable text. Scanned PDFs need OCR first.');return text}if(ext==='docx'){if(!window.mammoth)throw Error('Word reader did not load. Check your internet connection and refresh.');return(await window.mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()})).value}if(['txt','csv','tsv','html','htm'].includes(ext)){const content=await file.text();if(ext==='html'||ext==='htm')return new DOMParser().parseFromString(content,'text/html').body.innerText;return content}throw Error('File type not supported. Use PDF, DOCX, text, or CSV.')}
+const phonePattern=/(?:\+|00)?\d[\d\s().\-/]{5,}\d/g;
+function normalizePhone(value){const compact=String(value||'').trim();if(!compact)return'';try{const parsed=window.libphonenumber?.parsePhoneNumberFromString(compact,country.value);return parsed?.isValid()?parsed.number:compact}catch{return compact}}
+function extractGuests(text){const lines=String(text).replace(/\u00a0/g,' ').split(/[\r\n]+/).map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean),output=[];let previousName='';for(const line of lines){const matches=[...line.matchAll(phonePattern)];if(!matches.length){const candidate=cleanName(line);if(isLikelyName(candidate))previousName=candidate;else if(!isNoise(line))previousName='';continue}for(let index=0;index<matches.length;index++){const match=matches[index],rawPhone=match[0].trim(),before=line.slice(index===0?0:matches[index-1].index+matches[index-1][0].length,match.index),afterEnd=matches[index+1]?.index??line.length,after=line.slice(match.index+match[0].length,afterEnd);let name=cleanName(before)||cleanName(after)||previousName;if(/^(?:phone|mobile|tel|telephone|number|contact)\s*[:#-]?$/i.test(name))name=previousName;const normalized=normalizePhone(rawPhone);if(isLikelyPhone(normalized)&&isLikelyName(name))output.push({name,phone:normalized,rawPhone})}previousName=''}return output}
+function cleanName(v){return String(v||'').replace(/[|,:;\t]+/g,' ').replace(/\b(?:phone|mobile|tel|telephone|number|contact)\b\s*[:#-]?/ig,' ').replace(/[\s\-–—]+$/g,'').replace(/^[-–—\s]+/g,'').trim()}
+function isLikelyName(v){if(!v||v.length>90||/\d/.test(v)||isNoise(v))return false;const words=v.split(/\s+/);return words.length>=2&&words.length<=7&&words.some(w=>/[A-Za-zÀ-ž]/.test(w))}
+function isLikelyPhone(v){return(v.match(/\d/g)||[]).length>=7}
+function isNoise(v){return /^(name|guest|guest list|phone|phone number|mobile|telephone|contact|attendees|invitees|rsvp|page \d+)$/i.test(v.trim())}
+function dedupe(items){const seen=new Set();return items.filter(item=>{const key=`${item.name.toLowerCase()}|${item.phone.replace(/\D/g,'')}`;if(seen.has(key))return false;seen.add(key);return true})}
+function renderRows(){guestRows.replaceChildren();$('#row-count').textContent=`${guests.length} guest${guests.length===1?'':'s'}`;$('#empty-state').hidden=guests.length>0;$('#guest-table').hidden=guests.length===0;guests.forEach((guest,index)=>{const row=document.createElement('tr');row.innerHTML=`<td class="name-cell"><span class="row-number">${String(index+1).padStart(2,'0')}</span><input aria-label="Guest ${index+1} name" data-field="name" autocomplete="off"></td><td><input class="phone-input" aria-label="Guest ${index+1} phone number" data-field="phone" autocomplete="off"></td><td class="action-cell"><button class="remove-row" type="button" aria-label="Remove guest ${index+1}">×</button></td>`;const nameInput=row.querySelector('[data-field="name"]'),phoneInput=row.querySelector('[data-field="phone"]');nameInput.value=guest.name;phoneInput.value=guest.phone;nameInput.addEventListener('input',()=>guests[index].name=nameInput.value);phoneInput.addEventListener('change',()=>{guests[index].rawPhone=phoneInput.value;guests[index].phone=normalizePhone(phoneInput.value);phoneInput.value=guests[index].phone});row.querySelector('.remove-row').addEventListener('click',()=>{guests.splice(index,1);renderRows()});guestRows.append(row)})}
+function getRows(){return guests.map(g=>[g.name.trim(),normalizePhone(g.phone)]).filter(r=>r[0]||r[1])}
+async function copyForExcel(){const data=[['Name','Phone number'],...getRows()].map(r=>r.join('\t')).join('\n');try{await navigator.clipboard.writeText(data);$('#copy-status').textContent='Copied. Paste directly into Excel or Google Sheets.'}catch{const area=document.createElement('textarea');area.value=data;document.body.append(area);area.select();const copied=document.execCommand('copy');area.remove();$('#copy-status').textContent=copied?'Copied. Paste directly into Excel or Google Sheets.':'Copy was blocked by your browser. Download the CSV instead.'}}
+function downloadCsv(){const csv=[['Name','Phone number'],...getRows()].map(row=>row.map(cell=>`"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\r\n'),blob=new Blob(['\ufeff',csv],{type:'text/csv;charset=utf-8'}),link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='guest-list.csv';link.click();URL.revokeObjectURL(link.href)}
 </script>
 </body>
 </html>
