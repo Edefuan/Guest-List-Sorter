@@ -26,9 +26,7 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
 <header><div class="brand"><span class="logo">✦</span> Guest List Studio</div><div class="privacy"><b>●</b> Files stay on this device</div></header>
 <section class="hero"><div class="hero-inner"><div class="tag">LESS ADMIN. MORE CELEBRATING.</div><h1>Your guest list,<br><em>beautifully sorted.</em></h1><p>Upload your guest document and turn it into a clean, editable spreadsheet. Names and phone numbers in their own columns, ready for Excel.</p></div></section>
 <section class="panel">
-<div class="toolbar"> 
-  <span class="format">PHONE FORMAT · E.164</span>
-</div>
+<div class="toolbar"><span class="format">PHONE FORMAT · E.164</span></div>
 <option value="NG" selected>Nigeria (+234)</option><option value="GB">United Kingdom (+44)</option><option value="US">United States (+1)</option><option value="CA">Canada (+1)</option><option value="AU">Australia (+61)</option><option value="NZ">New Zealand (+64)</option><option value="IE">Ireland (+353)</option><option value="IN">India (+91)</option><option value="FR">France (+33)</option><option value="DE">Germany (+49)</option><option value="ES">Spain (+34)</option><option value="IT">Italy (+39)</option><option value="NL">Netherlands (+31)</option><option value="ZA">South Africa (+27)</option>
 </select><span class="format">PHONE FORMAT&nbsp; E.164</span></div>
 <div id="drop" class="drop" tabindex="0" role="button"><input id="files" type="file" accept=".pdf,.docx,.txt,.csv,.tsv,.html,.htm" multiple hidden><div><div class="upload">↑</div><strong>Drop your guest list here</strong><small>or <b>browse files</b> on your device</small><div class="types">PDF · Word (.docx) · TXT · CSV</div></div></div>
@@ -70,9 +68,7 @@ function formatPhone(value) {
     number = '+' + number.slice(2);
   }
 
-  if (!number.startsWith('+')) {
-    return number;
-  }
+  if (!number.startsWith('+')) return number;
 
   try {
     const parsed = libphonenumber.parsePhoneNumberFromString(number);
