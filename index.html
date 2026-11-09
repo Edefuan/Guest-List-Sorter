@@ -220,34 +220,45 @@
     // Nigeria mobile prefixes: 070, 080, 081, 090, 091.
     // UK mobile prefixes: 071–075 and 077–079. UK 070 is a personal-number range.
     const nationalDigits = input.replace(/\D/g, "");
-    if (nationalDigits.length === 11 && nationalDigits.startsWith("0")) {
-      const nigeriaMobile = /^(?:070|080|081|090|091)/.test(nationalDigits);
-      const ukMobile = /^07(?:[1-5]|[7-9])/.test(nationalDigits);
 
-      if (ukMobile && !nigeriaMobile) {
-        const parsed = parsePhoneNumberFromString(nationalDigits, "GB");
-        if (parsed?.isValid() && parsed.getType?.() === "MOBILE") {
-          return {
-            phone: parsed.number,
-            callingCode: "+44",
-            status: "ready",
-            reason: "UK mobile number matched country code +44"
-          };
-        }
-      }
+// Excel can remove a leading zero when it stores a phone number as a number.
+// Restore it for 10-digit mobile values, then validate against country ranges.
+const nationalCandidate = nationalDigits.length === 10 && /^[7-9]/.test(nationalDigits)
+  ? `0${nationalDigits}`
+  : nationalDigits;
 
-      if (nigeriaMobile) {
-        const parsed = parsePhoneNumberFromString(nationalDigits, "NG");
-        if (parsed?.isValid() && parsed.getType?.() === "MOBILE") {
-          return {
-            phone: parsed.number,
-            callingCode: "+234",
-            status: "ready",
-            reason: "Nigerian mobile number matched country code +234"
-          };
-        }
-      }
+if (nationalCandidate.length === 11 && nationalCandidate.startsWith("0")) {
+  const nigeriaMobile = /^(?:070|080|081|090|091)/.test(nationalCandidate);
+  const ukMobile = /^07(?:[1-5]|[7-9])/.test(nationalCandidate);
+
+  if (ukMobile && !nigeriaMobile) {
+    const parsed = parsePhoneNumberFromString(nationalCandidate, "GB");
+    if (parsed?.isValid() && parsed.getType?.() === "MOBILE") {
+      return {
+        phone: parsed.number,
+        callingCode: "+44",
+        status: "ready",
+        reason: nationalDigits.length === 10
+          ? "Leading zero restored; UK mobile number matched country code +44"
+          : "UK mobile number matched country code +44"
+      };
     }
+  }
+
+  if (nigeriaMobile) {
+    const parsed = parsePhoneNumberFromString(nationalCandidate, "NG");
+    if (parsed?.isValid() && parsed.getType?.() === "MOBILE") {
+      return {
+        phone: parsed.number,
+        callingCode: "+234",
+        status: "ready",
+        reason: nationalDigits.length === 10
+          ? "Leading zero restored; Nigerian mobile number matched country code +234"
+          : "Nigerian mobile number matched country code +234"
+      };
+    }
+  }
+}
 
     // For other regions, format only when a unique valid match is found.
     const matches = new Map();
