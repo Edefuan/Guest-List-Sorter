@@ -143,8 +143,8 @@
       <p class="upload-title">Bring your guest list</p>
       <p class="upload-help">Drop a file here or choose one from your device</p>
       <button class="button primary" id="choose" type="button">Choose a file <span aria-hidden="true">↗</span></button>
-      <input id="files" type="file" accept=".pdf,.docx,.csv,.txt" multiple>
-      <div class="file-note">PDF · Word (.docx) · CSV · TXT &nbsp;•&nbsp; Processed in your browser</div>
+     <input id="files" type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt" multiple>
+     <div class="file-note">PDF · Word (.docx) · Excel (.xlsx, .xls) · CSV · TXT &nbsp;•&nbsp; Processed in your browser</div>
     </div>
   </section>
   <div id="message" role="status" aria-live="polite"></div>
@@ -344,6 +344,31 @@
   }
 
   async function readFile(file) {
+    if (ext === "xlsx" || ext === "xls") {
+  const workbook = XLSX.read(await file.arrayBuffer(), {
+    type: "array",
+    cellDates: true
+  });
+
+  const lines = [];
+
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      raw: false,
+      defval: "",
+      blankrows: false
+    });
+
+    for (const row of data) {
+      const cells = row.map(value => clean(value));
+      if (cells.some(Boolean)) lines.push(cells.join("\t"));
+    }
+  }
+
+  return lines.join("\n");
+}
     const ext = file.name.toLowerCase().split(".").pop();
 
     if (ext === "txt" || ext === "csv") return file.text();
