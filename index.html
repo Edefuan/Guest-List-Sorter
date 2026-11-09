@@ -82,7 +82,10 @@
 
 <script type="module">
   import * as XLSX from "https://esm.sh/xlsx@0.18.5";
-  import { parsePhoneNumberFromString } from "https://esm.sh/libphonenumber-js@1.11.20";
+  import {
+  parsePhoneNumberFromString,
+  getCountries
+} from "https://esm.sh/libphonenumber-js@1.11.20";
   import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
   import mammoth from "https://esm.sh/mammoth@1.9.0";
 
@@ -116,12 +119,73 @@
       return { phone: input, status: "review", reason: "No country code provided" };
     }
 
-    const parsed = parsePhoneNumberFromString(international);
-    if (parsed && parsed.isValid()) {
-      return { phone: parsed.number, status: "ready", reason: "Valid international number" };
-    }
-    return { phone: international, status: "review", reason: "Invalid or unrecognized number" };
+  function parsePhone(raw) {
+  const input = clean(raw).replace(/[().\s-]/g, "");
+  if (!input) {
+    return { phone: "", status: "review", reason: "Enter a number" };
   }
+
+  // Explicit international numbers: +44..., +234..., or 0044...
+  const international = input.startsWith("+")
+    ? input
+    : input.startsWith("00")
+      ? "+" + input.slice(2)
+      : null;
+
+  if (international) {
+    const parsed = parsePhoneNumberFromString(international);
+
+    if (parsed?.isValid()) {
+      return {
+        phone: parsed.number,
+        status: "ready",
+        reason: `Country code +${parsed.countryCallingCode} detected`
+      };
+    }
+
+    return {
+      phone: international,
+      status: "review",
+      reason: "Invalid or unrecognized international number"
+    };
+  }
+
+  // For numbers without a country code, check all supported numbering plans.
+  // Accept a result only when exactly one distinct E.164 number is valid.
+  const matches = new Map();
+
+  for (const country of getCountries()) {
+    const parsed = parsePhoneNumberFromString(input, country);
+
+    if (parsed?.isValid()) {
+      matches.set(parsed.number, parsed);
+    }
+  }
+
+  if (matches.size === 1) {
+    const parsed = [...matches.values()][0];
+
+    return {
+      phone: parsed.number,
+      status: "ready",
+      reason: `Country code +${parsed.countryCallingCode} detected from number`
+    };
+  }
+
+  if (matches.size > 1) {
+    return {
+      phone: input,
+      status: "review",
+      reason: "Could match more than one country; add the country code"
+    };
+  }
+
+  return {
+    phone: input,
+    status: "review",
+    reason: "No country code and no unique country match"
+  };
+}
 
   function splitLine(line) {
     const value = clean(line);
