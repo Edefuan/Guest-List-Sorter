@@ -159,7 +159,7 @@
     <div class="summary" id="summary"><span class="count">0 guests</span><span class="dot"></span>Ready to upload</div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Guest name</th><th>Phone · E.164</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Guest name</th><th>Phone · E.164 when detected</th><th>Status</th><th></th></tr></thead>
         <tbody id="guestRows"><tr><td class="empty" colspan="4">Your guests will appear here. Ready when you are! 🎉</td></tr></tbody>
       </table>
     </div>
@@ -190,73 +190,141 @@
   function parsePhone(raw) {
     const input = compact(raw);
     if (!input) return { phone: "", status: "review", reason: "Enter a phone number" };
-    const international = input.startsWith("+") ? input : input.startsWith("00") ? `+${input.slice(2)}` : "";
+
+    const international = input.startsWith("+")
+      ? input
+      : input.startsWith("00")
+        ? `+${input.slice(2)}`
+        : "";
+
     if (international) {
       const parsed = parsePhoneNumberFromString(international);
-      if (parsed?.isValid()) return { phone: parsed.number, status: "ready", reason: `Country code +${parsed.countryCallingCode} detected`, country: parsed.country || "" };
-      return { phone: input, status: "review", reason: "Invalid or unrecognised international number", country: "" };
+      if (parsed?.isValid()) {
+        return {
+          phone: parsed.number,
+          status: "ready",
+          reason: `Country code +${parsed.countryCallingCode} detected`
+        };
+      }
+      return {
+        phone: input,
+        status: "review",
+        reason: "Invalid or unrecognised international number"
+      };
     }
-    // Try every numbering plan. Format only when all valid matches resolve
-    // to the same E.164 number; never choose between conflicting countries.
+
+    // Check all country numbering plans. Format only if the possible matches
+    // produce one E.164 result; never guess between different country codes.
     const matches = new Map();
     for (const region of regions) {
       const parsed = parsePhoneNumberFromString(input, region);
       if (parsed?.isValid()) matches.set(parsed.number, parsed);
       if (matches.size > 1) break;
     }
+
     if (matches.size === 1) {
       const parsed = matches.values().next().value;
-      return { phone: parsed.number, status: "ready", reason: `Automatically matched country code +${parsed.countryCallingCode}` };
+      return {
+        phone: parsed.number,
+        status: "ready",
+        reason: `Automatically matched country code +${parsed.countryCallingCode}`
+      };
     }
+
     if (matches.size > 1) {
-      return { phone: input, status: "review", reason: "This number matches more than one country; add its +country code" };
+      return {
+        phone: input,
+        status: "review",
+        reason: "This number matches more than one country; add its +country code"
+      };
     }
-    return { phone: input, status: "review", reason: "Could not identify a country code; add it with + to confirm" };
+
+    return {
+      phone: input,
+      status: "review",
+      reason: "Could not identify a country code; add it with + to confirm"
+    };
   }
 
   function splitLine(line) {
     const value = clean(line);
-    if (!value) return null;
-    let match = value.match(/(?:\+|\b00)\s*\d[\d\s().-]{5,}\d/);
-    if (match) {
-      const before = clean(value.slice(0, match.index).replace(/[,:;|—-]+$/, ""));
-      const after = clean(value.slice(match.index + match[0].length).replace(/^[,:;|—-]+/, ""));
-      const name = before || after;
-      if (name) return { name, phone: clean(match[0]) };
+    if (!value) return [];
+
+    // Extract multiple name/number pairs when PDF text places several guests
+    // on the same row.
+    const phonePattern = /(?:\+\s?\d[\d\s().-]{5,}\d|\b00\s?\d[\d\s().-]{5,}\d|\b\d[\d\s().-]{6,}\d)/g;
+    const matches = [...value.matchAll(phonePattern)];
+
+    if (matches.length) {
+      const pairs = [];
+      let previousEnd = 0;
+
+      for (let i = 0; i < matches.length; i++) {
+        const match = matches[i];
+        const before = clean(value.slice(previousEnd, match.index).replace(/[,:;|—-]+$/, ""));
+        const after = i === 0 && !before
+          ? clean(value.slice(match.index + match[0].length).replace(/^[,:;|—-]+/, ""))
+          : "";
+        const name = before || after;
+
+        if (name) pairs.push({ name, phone: clean(match[0]) });
+        previousEnd = match.index + match[0].length;
+      }
+      return pairs;
     }
-    match = value.match(/\b\d[\d\s().-]{6,}\d\s*$/);
-    if (match) {
-      const name = clean(value.slice(0, match.index).replace(/[,:;|—-]+$/, ""));
-      if (name) return { name, phone: clean(match[0]) };
-    }
+
     const parts = value.split(/\t+|,|;|\|/).map(clean).filter(Boolean);
     if (parts.length >= 2) {
       const index = parts.findIndex(part => part.replace(/\D/g, "").length >= 7);
-      if (index >= 0) return { name: parts.filter((_, i) => i !== index).join(" "), phone: parts[index] };
+      if (index >= 0) {
+        return [{
+          name: parts.filter((_, i) => i !== index).join(" "),
+          phone: parts[index]
+        }];
+      }
     }
-    return null;
+    return [];
   }
 
   async function readFile(file) {
     const ext = file.name.toLowerCase().split(".").pop();
+
     if (ext === "txt" || ext === "csv") return file.text();
-    if (ext === "docx") return (await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })).value;
+
+    if (ext === "docx") {
+      const result = await mammoth.extractRawText({
+        arrayBuffer: await file.arrayBuffer()
+      });
+      return result.value;
+    }
+
     if (ext === "pdf") {
-      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      const pdf = await pdfjsLib.getDocument({
+        data: await file.arrayBuffer()
+      }).promise;
       const pages = [];
+
       for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
         const page = await pdf.getPage(pageNo);
         const content = await page.getTextContent();
         const lines = new Map();
+
         for (const item of content.items) {
           if (!item.str?.trim()) continue;
           const y = Math.round(item.transform[5]);
           lines.set(y, [...(lines.get(y) || []), item.str]);
         }
-        pages.push([...lines.entries()].sort((a, b) => b[0] - a[0]).map(([, words]) => words.join(" ")).join("\n"));
+
+        pages.push(
+          [...lines.entries()]
+            .sort((a, b) => b[0] - a[0])
+            .map(([, words]) => words.join(" "))
+            .join("\n")
+        );
       }
       return pages.join("\n");
     }
+
     throw new Error(`Unsupported file type: ${ext}`);
   }
 
@@ -264,21 +332,36 @@
     if (!files?.length) return;
     message.textContent = "Opening your guest list…";
     let added = 0;
+
     try {
       for (const file of files) {
         const text = await readFile(file);
+
         for (const line of text.split(/\r?\n/)) {
-          const pair = splitLine(line);
-          if (!pair) continue;
-          const parsed = parsePhone(pair.phone);
-          guests.push({ id: crypto.randomUUID(), name: pair.name, sourcePhone: pair.phone, phone: parsed.phone, status: parsed.status, reason: parsed.reason });
-          added++;
+          const pairs = splitLine(line);
+
+          for (const pair of pairs) {
+            const parsed = parsePhone(pair.phone);
+            guests.push({
+              id: crypto.randomUUID(),
+              name: pair.name,
+              sourcePhone: pair.phone,
+              phone: parsed.phone,
+              status: parsed.status,
+              reason: parsed.reason
+            });
+            added++;
+          }
         }
       }
-      message.textContent = added ? `Found ${added} guest${added === 1 ? "" : "s"}. International codes were detected where possible; check any number marked for review.` : "No name and number pairs found. Check that each guest's name and number are on the same line or separated into columns.";
+
+      message.textContent = added
+        ? `Found ${added} guest${added === 1 ? "" : "s"}. International codes were detected where possible; check any number marked for review.`
+        : "No name and number pairs found. Check that each guest's name and number are on the same line or separated into columns.";
     } catch (error) {
       message.textContent = `Could not read file: ${error.message}`;
     }
+
     fileInput.value = "";
     render();
   }
@@ -286,8 +369,10 @@
   function render() {
     const ready = guests.filter(guest => guest.status === "ready").length;
     const review = guests.length - ready;
+
     summary.innerHTML = `<span class="count">${guests.length} guest${guests.length === 1 ? "" : "s"}</span><span class="dot"></span><span>${ready} ready</span><span class="dot"></span><span>${review} to review</span>`;
-    exportButton.disabled = ready === 0;
+    exportButton.disabled = guests.length === 0;
+
     if (!guests.length) {
       rows.innerHTML = '<tr><td class="empty" colspan="4">Your guests will appear here. Ready when you are! 🎉</td></tr>';
       return;
@@ -295,6 +380,7 @@
 
     rows.replaceChildren(...guests.map(guest => {
       const row = document.createElement("tr");
+
       const nameCell = document.createElement("td");
       const name = document.createElement("input");
       name.className = "guest-name";
@@ -311,9 +397,14 @@
       phone.addEventListener("change", () => {
         guest.sourcePhone = phone.value;
         const parsed = parsePhone(phone.value);
-        Object.assign(guest, { phone: parsed.phone, status: parsed.status, reason: parsed.reason });
+        Object.assign(guest, {
+          phone: parsed.phone,
+          status: parsed.status,
+          reason: parsed.reason
+        });
         render();
       });
+
       const note = document.createElement("span");
       note.className = "note";
       note.textContent = guest.reason;
@@ -331,8 +422,12 @@
       remove.type = "button";
       remove.textContent = "×";
       remove.setAttribute("aria-label", `Remove ${guest.name || "guest"}`);
-      remove.addEventListener("click", () => { guests = guests.filter(item => item.id !== guest.id); render(); });
+      remove.addEventListener("click", () => {
+        guests = guests.filter(item => item.id !== guest.id);
+        render();
+      });
       removeCell.append(remove);
+
       row.append(nameCell, phoneCell, statusCell, removeCell);
       return row;
     }));
@@ -340,19 +435,45 @@
 
   document.querySelector("#choose").addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", event => importFiles(event.target.files));
-  dropzone.addEventListener("dragover", event => { event.preventDefault(); dropzone.classList.add("drag"); });
+
+  dropzone.addEventListener("dragover", event => {
+    event.preventDefault();
+    dropzone.classList.add("drag");
+  });
   dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
-  dropzone.addEventListener("drop", event => { event.preventDefault(); dropzone.classList.remove("drag"); importFiles(event.dataTransfer.files); });
+  dropzone.addEventListener("drop", event => {
+    event.preventDefault();
+    dropzone.classList.remove("drag");
+    importFiles(event.dataTransfer.files);
+  });
 
   exportButton.addEventListener("click", () => {
-    const valid = guests.filter(guest => guest.status === "ready" && guest.name.trim());
-    if (!valid.length) return;
-    const sheet = XLSX.utils.aoa_to_sheet([["Name", "Phone (E.164)"], ...valid.map(guest => [guest.name.trim(), guest.phone])]);
-    sheet["!cols"] = [{ wch: 32 }, { wch: 26 }];
-    for (let r = 1; r <= valid.length; r++) {
-      const cell = sheet[XLSX.utils.encode_cell({ r, c: 1 })];
+    const rowsToExport = guests.filter(guest => guest.name.trim());
+    if (!rowsToExport.length) return;
+
+    const sheet = XLSX.utils.aoa_to_sheet([
+      ["Name", "Phone (E.164 when detected)", "Status", "Review note"],
+      ...rowsToExport.map(guest => [
+        guest.name.trim(),
+        guest.phone,
+        guest.status === "ready" ? "Ready" : "Review",
+        guest.status === "ready" ? "" : guest.reason
+      ])
+    ]);
+
+    sheet["!cols"] = [
+      { wch: 32 },
+      { wch: 28 },
+      { wch: 12 },
+      { wch: 58 }
+    ];
+
+    // Keep phone values as text so Excel preserves a leading +.
+    for (let row = 1; row <= rowsToExport.length; row++) {
+      const cell = sheet[XLSX.utils.encode_cell({ r: row, c: 1 })];
       if (cell) cell.t = "s";
     }
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, "Guest List");
     XLSX.writeFile(workbook, "GLS-guest-list.xlsx");
