@@ -8,7 +8,8 @@
   <style>
     :root {
       --ink:#22213b; --muted:#706f88; --purple:#6654d9; --purple-dark:#4c3cbd;
-      --green:#147b59; --coral:#ff806e; --line:#eceaf5; --surface:#fff; --bg:#f7f5ff;
+      --mint:#dff8ec; --green:#147b59; --coral:#ff806e; --yellow:#ffe9a8;
+      --line:#eceaf5; --surface:#fff; --bg:#f7f5ff;
     }
     * { box-sizing:border-box; }
     body {
@@ -216,7 +217,39 @@
       };
     }
 
-    // Check all country numbering plans. Prefer a unique valid mobile match.
+    // Nigeria mobile prefixes: 070, 080, 081, 090, 091.
+    // UK mobile prefixes: 071–075 and 077–079. UK 070 is a personal-number range.
+    const nationalDigits = input.replace(/\D/g, "");
+    if (nationalDigits.length === 11 && nationalDigits.startsWith("0")) {
+      const nigeriaMobile = /^(?:070|080|081|090|091)/.test(nationalDigits);
+      const ukMobile = /^07(?:[1-5]|[7-9])/.test(nationalDigits);
+
+      if (ukMobile && !nigeriaMobile) {
+        const parsed = parsePhoneNumberFromString(nationalDigits, "GB");
+        if (parsed?.isValid() && parsed.getType?.() === "MOBILE") {
+          return {
+            phone: parsed.number,
+            callingCode: "+44",
+            status: "ready",
+            reason: "UK mobile number matched country code +44"
+          };
+        }
+      }
+
+      if (nigeriaMobile) {
+        const parsed = parsePhoneNumberFromString(nationalDigits, "NG");
+        if (parsed?.isValid() && parsed.getType?.() === "MOBILE") {
+          return {
+            phone: parsed.number,
+            callingCode: "+234",
+            status: "ready",
+            reason: "Nigerian mobile number matched country code +234"
+          };
+        }
+      }
+    }
+
+    // For other regions, format only when a unique valid match is found.
     const matches = new Map();
     const mobileMatches = new Map();
 
