@@ -31,7 +31,7 @@
     h2 { margin:0; font-size:22px; }
     .summary { color:#718078; font-size:13px; margin:10px 0; }
     .tablewrap { overflow-x:auto; background:white; border-radius:10px; }
-    table { width:100%; border-collapse:collapse; min-width:580px; }
+    table { width:100%; border-collapse:collapse; min-width:760px; }
     th { text-align:left; color:#75847c; font-size:11px; letter-spacing:.07em; }
     th, td { padding:12px; border-bottom:1px solid #e9eeeb; }
     td input { width:100%; padding:8px; border:1px solid transparent; border-radius:5px; font:inherit; color:#20372e; }
@@ -52,7 +52,7 @@
 <body>
 <main>
   <h1>Your guest list,<br><span>neatly in order.</span></h1>
-  <p class="lead">Upload a document, review the names and international phone numbers, then export to Excel.</p>
+  <p class="lead">Upload a document, review each number, choose a country code where needed, then export to Excel. Existing international codes are detected automatically.</p>
 
   <section class="upload" id="dropzone">
     <strong>Drop your file here</strong>
@@ -71,22 +71,22 @@
   <div class="summary" id="summary">0 guests</div>
   <div class="tablewrap">
     <table>
-      <thead><tr><th>Name</th><th>Phone number · E.164</th><th>Status</th><th></th></tr></thead>
-      <tbody id="body"><tr><td class="empty" colspan="4">Your guest list will appear here after upload.</td></tr></tbody>
+      <thead><tr><th>Name</th><th>Phone number · E.164</th><th>Country code</th><th>Status</th><th></th></tr></thead>
+      <tbody id="body"><tr><td class="empty" colspan="5">Your guest list will appear here after upload.</td></tr></tbody>
     </table>
   </div>
   <footer>
-    Numbers with explicit country codes are parsed individually. Numbers without a country code are flagged for review; no country is assumed. Only valid international numbers are exported. Scanned image PDFs are not supported by this version.
+    Choose a country code for each number that does not already include one. Numbers with an explicit international code keep that code. Only valid international numbers are exported. Scanned image PDFs are not supported by this version.
   </footer>
 </main>
 
 <script type="module">
   import * as XLSX from "https://esm.sh/xlsx@0.18.5";
   import {
-  parsePhoneNumberFromString,
-  getCountries,
-  getCountryCallingCode
-} from "https://esm.sh/libphonenumber-js@1.11.20";
+    parsePhoneNumberFromString,
+    getCountries,
+    getCountryCallingCode
+  } from "https://esm.sh/libphonenumber-js@1.11.20";
   import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
   import mammoth from "https://esm.sh/mammoth@1.9.0";
 
@@ -101,8 +101,7 @@
   const summary = document.querySelector("#summary");
   let guests = [];
 
-  // Build one shared country list. It is used only when a number has no
-  // international prefix; there is deliberately no file-wide default region.
+  // Country choice is per guest; no default country is assumed for the whole file.
   const displayNames = new Intl.DisplayNames(["en"], { type: "region" });
   const countryChoices = getCountries().map(country => ({
     country,
@@ -123,70 +122,65 @@
   }
 
   function parsePhone(raw, selectedCountry = "") {
-  const input = clean(raw).replace(/[().\s-]/g, "");
-  if (!input) {
-    return { phone: "", status: "review", reason: "Enter a number" };
-  }
+    const input = clean(raw).replace(/[().\s-]/g, "");
+    if (!input) {
+      return { phone: "", status: "review", reason: "Enter a number" };
+    }
 
-  // Explicit international numbers: +44..., +234..., or 0044...
-  const international = input.startsWith("+")
-    ? input
-    : input.startsWith("00")
-      ? "+" + input.slice(2)
-      : null;
+    const international = input.startsWith("+")
+      ? input
+      : input.startsWith("00")
+        ? "+" + input.slice(2)
+        : null;
 
-  if (international) {
-    const parsed = parsePhoneNumberFromString(international);
-
-    if (parsed?.isValid()) {
+    if (international) {
+      const parsed = parsePhoneNumberFromString(international);
+      if (parsed?.isValid()) {
+        return {
+          phone: parsed.number,
+          status: "ready",
+          reason: `Country code +${parsed.countryCallingCode} detected`
+        };
+      }
       return {
-        phone: parsed.number,
+        phone: international,
+        status: "review",
+        reason: "Invalid or unrecognized international number"
+      };
+    }
+
+    if (selectedCountry) {
+      const parsed = parsePhoneNumberFromString(input, selectedCountry);
+      if (parsed?.isValid()) {
+        return {
+          phone: parsed.number,
+          status: "ready",
+          reason: `Country selected: +${parsed.countryCallingCode}`
+        };
+      }
+    }
+
+    // Accept a number without "+" as international only when it validates that way.
+    const bareInternational = parsePhoneNumberFromString(`+${input}`);
+    if (bareInternational?.isValid()) {
+      return {
+        phone: bareInternational.number,
         status: "ready",
-        reason: `Country code +${parsed.countryCallingCode} detected`
+        reason: `Country code +${bareInternational.countryCallingCode} detected`
       };
     }
 
     return {
-      phone: international,
+      phone: input,
       status: "review",
-      reason: "Invalid or unrecognized international number"
+      reason: "No country code; choose the country for this number"
     };
   }
-
-  if (selectedCountry) {
-    const parsed = parsePhoneNumberFromString(input, selectedCountry);
-    if (parsed?.isValid()) {
-      return {
-        phone: parsed.number,
-        status: "ready",
-        reason: `Country selected: +${parsed.countryCallingCode}`
-      };
-    }
-  }
-
-  // Some files omit the + sign while retaining the international calling code.
-  // Accept that only if the resulting international number validates.
-  const bareInternational = parsePhoneNumberFromString(`+${input}`);
-  if (bareInternational?.isValid()) {
-    return {
-      phone: bareInternational.number,
-      status: "ready",
-      reason: `Country code +${bareInternational.countryCallingCode} detected`
-    };
-  }
-
-  return {
-    phone: input,
-    status: "review",
-    reason: "No country code; choose the country for this number"
-  };
-}
 
   function splitLine(line) {
     const value = clean(line);
     if (!value) return null;
 
-    // Find a phone with +country code or 00 international prefix.
     let match = value.match(/(?:\+|\b00)\s*\d[\d\s().-]{5,}\d/);
     if (match) {
       const name = clean(value.slice(0, match.index).replace(/[,:;|—-]+$/, "")) ||
@@ -194,14 +188,12 @@
       if (name) return { name, phone: clean(match[0]) };
     }
 
-    // Also extract national numbers, but mark them for review.
     match = value.match(/\b\d[\d\s().-]{6,}\d\s*$/);
     if (match) {
       const name = clean(value.slice(0, match.index).replace(/[,:;|—-]+$/, ""));
       if (name) return { name, phone: clean(match[0]) };
     }
 
-    // Handle comma/tab/pipe separated name and number columns.
     const parts = value.split(/\t+|,{1}|;|\|/).map(clean).filter(Boolean);
     if (parts.length >= 2) {
       const index = parts.findIndex(p => p.replace(/\D/g, "").length >= 7);
@@ -265,6 +257,10 @@
             id: crypto.randomUUID(),
             name: pair.name,
             phone: parsed.phone,
+            sourcePhone: pair.phone,
+            country: parsed.status === "ready"
+              ? parsePhoneNumberFromString(parsed.phone)?.country || ""
+              : "",
             status: parsed.status,
             reason: parsed.reason
           });
@@ -289,7 +285,7 @@
     exportButton.disabled = readyCount === 0;
 
     if (!guests.length) {
-      body.innerHTML = '<tr><td class="empty" colspan="4">Your guest list will appear here after upload.</td></tr>';
+      body.innerHTML = '<tr><td class="empty" colspan="5">Your guest list will appear here after upload.</td></tr>';
       return;
     }
 
@@ -310,6 +306,8 @@
       phoneInput.addEventListener("change", () => {
         const parsed = parsePhone(phoneInput.value);
         guest.phone = parsed.phone;
+        guest.sourcePhone = phoneInput.value;
+        guest.country = "";
         guest.status = parsed.status;
         guest.reason = parsed.reason;
         render();
@@ -319,28 +317,54 @@
       note.textContent = guest.reason;
       phoneCell.append(phoneInput, note);
 
-      if (guest.status === "review" && !guest.phone.startsWith("+")) {
-        const countryInput = document.createElement("input");
-        countryInput.setAttribute("aria-label", "Choose country for this phone number");
-        countryInput.setAttribute("list", "country-options");
-        countryInput.placeholder = "Type country to format number…";
-        countryInput.style.cssText = "display:block;margin:7px 8px 0;padding:6px 8px;border:1px solid #cbd8d1;border-radius:5px;background:white;color:#29483a;font:inherit;font-size:12px;max-width:100%;";
-        countryInput.addEventListener("change", () => {
-          const selectedCountry = countryLookup.get(countryInput.value);
-          if (!selectedCountry) return;
-          const parsed = parsePhoneNumberFromString(guest.phone, selectedCountry);
-          if (!parsed?.isValid()) {
-            guest.reason = "This number is not valid for the selected country";
-            render();
-            return;
-          }
+      const countryCell = document.createElement("td");
+      const countryInput = document.createElement("input");
+      countryInput.setAttribute("aria-label", `Country code for ${guest.name || "guest"}`);
+      countryInput.setAttribute("list", "country-options");
+      countryInput.placeholder = "Choose country…";
+      countryInput.value = guest.country
+        ? countryChoices.find(choice => choice.country === guest.country)?.label || ""
+        : "";
+      countryInput.addEventListener("change", () => {
+        const selectedCountry = countryLookup.get(countryInput.value);
+        if (!selectedCountry) {
+          guest.country = "";
+          const parsed = parsePhone(guest.sourcePhone);
+          guest.phone = parsed.phone;
+          guest.status = parsed.status;
+          guest.reason = parsed.reason;
+          render();
+          return;
+        }
+
+        const original = clean(guest.sourcePhone);
+        if (original.startsWith("+") || original.startsWith("00")) {
+          const explicit = parsePhone(guest.sourcePhone);
+          guest.phone = explicit.phone;
+          guest.status = explicit.status;
+          guest.country = parsePhoneNumberFromString(explicit.phone)?.country || "";
+          guest.reason = explicit.reason;
+          render();
+          return;
+        }
+
+        const nationalDigits = original.replace(/\D/g, "");
+        const parsed = parsePhoneNumberFromString(nationalDigits, selectedCountry);
+        guest.country = selectedCountry;
+
+        if (!parsed?.isValid()) {
+          guest.phone = guest.sourcePhone;
+          guest.status = "review";
+          guest.reason = `Not a valid ${displayNames.of(selectedCountry)} number`;
+        } else {
           guest.phone = parsed.number;
           guest.status = "ready";
           guest.reason = `Country selected: +${parsed.countryCallingCode}`;
-          render();
-        });
-        phoneCell.append(countryInput);
-      }
+        }
+
+        render();
+      });
+      countryCell.append(countryInput);
 
       const statusCell = document.createElement("td");
       const badge = document.createElement("span");
@@ -359,7 +383,7 @@
       });
       removeCell.append(remove);
 
-      row.append(nameCell, phoneCell, statusCell, removeCell);
+      row.append(nameCell, phoneCell, countryCell, statusCell, removeCell);
       return row;
     }));
   }
@@ -388,7 +412,6 @@
     ]);
     sheet["!cols"] = [{ wch: 32 }, { wch: 24 }];
 
-    // Store phone cells as text so Excel preserves the leading +.
     for (let r = 1; r <= valid.length; r++) {
       const cell = sheet[XLSX.utils.encode_cell({ r, c: 1 })];
       if (cell) cell.t = "s";
@@ -401,3 +424,4 @@
 </script>
 </body>
 </html>
+``)
