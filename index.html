@@ -259,7 +259,19 @@ if (nationalCandidate.length === 11 && nationalCandidate.startsWith("0")) {
     }
   }
 }
+// Check valid 10-digit North American numbers for calling code +1.
+if (/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalDigits)) {
+  const northAmerican = parsePhoneNumberFromString(nationalDigits, "US");
 
+  if (northAmerican?.isValid()) {
+    return {
+      phone: northAmerican.number,
+      callingCode: `+${northAmerican.countryCallingCode}`,
+      status: "ready",
+      reason: "Valid North American number matched calling code +1"
+    };
+  }
+}
     // For other regions, format only when a unique valid match is found.
     const matches = new Map();
     const mobileMatches = new Map();
