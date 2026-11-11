@@ -143,8 +143,8 @@
       <p class="upload-title">Bring your guest list</p>
       <p class="upload-help">Drop a file here or choose one from your device</p>
       <button class="button primary" id="choose" type="button">Choose a file <span aria-hidden="true">↗</span></button>
-     <input id="files" type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt" multiple>
-     <div class="file-note">PDF · Word (.docx) · Excel (.xlsx, .xls) · CSV · TXT &nbsp;•&nbsp; Processed in your browser</div>
+      <input id="files" type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt" multiple>
+      <div class="file-note">PDF · Word (.docx) · Excel (.xlsx, .xls) · CSV · TXT &nbsp;•&nbsp; Processed in your browser</div>
     </div>
   </section>
   <div id="message" role="status" aria-live="polite"></div>
@@ -217,61 +217,77 @@
       };
     }
 
+    // Some spreadsheets store international numbers as digits without a +.
+    // Accept them as international only when the full number validates.
+    if (/^\d{10,15}$/.test(input)) {
+      const parsed = parsePhoneNumberFromString(`+${input}`);
+      if (parsed?.isValid()) {
+        return {
+          phone: parsed.number,
+          callingCode: `+${parsed.countryCallingCode}`,
+          status: "ready",
+          reason: `Country code +${parsed.countryCallingCode} detected from the uploaded number`
+        };
+      }
+    }
+
     // Nigeria mobile prefixes: 070, 080, 081, 090, 091.
     // UK mobile prefixes: 071–075 and 077–079. UK 070 is a personal-number range.
     const nationalDigits = input.replace(/\D/g, "");
 
-// Excel can remove a leading zero when it stores a phone number as a number.
-// Restore it for 10-digit mobile values, then validate against country ranges.
-const nationalCandidate = nationalDigits.length === 10 && /^[7-9]/.test(nationalDigits)
-  ? `0${nationalDigits}`
-  : nationalDigits;
+    // Excel can remove a leading zero when it stores a phone number as a number.
+    // Restore it for 10-digit mobile values, then validate against country ranges.
+    const nationalCandidate = nationalDigits.length === 10 && /^[7-9]/.test(nationalDigits)
+      ? `0${nationalDigits}`
+      : nationalDigits;
 
-if (nationalCandidate.length === 11 && nationalCandidate.startsWith("0")) {
-  const nigeriaMobile = /^(?:070|080|081|090|091)/.test(nationalCandidate);
-  const ukMobile = /^07(?:[1-5]|[7-9])/.test(nationalCandidate);
+    if (nationalCandidate.length === 11 && nationalCandidate.startsWith("0")) {
+      const nigeriaMobile = /^(?:070|080|081|090|091)/.test(nationalCandidate);
+      const ukMobile = /^07(?:[1-5]|[7-9])/.test(nationalCandidate);
 
-  if (ukMobile && !nigeriaMobile) {
-    const parsed = parsePhoneNumberFromString(nationalCandidate, "GB");
-    if (parsed?.isValid() && parsed.getType?.() === "MOBILE") {
-      return {
-        phone: parsed.number,
-        callingCode: "+44",
-        status: "ready",
-        reason: nationalDigits.length === 10
-          ? "Leading zero restored; UK mobile number matched country code +44"
-          : "UK mobile number matched country code +44"
-      };
+      if (ukMobile && !nigeriaMobile) {
+        const parsed = parsePhoneNumberFromString(nationalCandidate, "GB");
+        if (parsed?.isValid() && parsed.getType?.() === "MOBILE") {
+          return {
+            phone: parsed.number,
+            callingCode: "+44",
+            status: "ready",
+            reason: nationalDigits.length === 10
+              ? "Leading zero restored; UK mobile number matched country code +44"
+              : "UK mobile number matched country code +44"
+          };
+        }
+      }
+
+      if (nigeriaMobile) {
+        const parsed = parsePhoneNumberFromString(nationalCandidate, "NG");
+        if (parsed?.isValid() && parsed.getType?.() === "MOBILE") {
+          return {
+            phone: parsed.number,
+            callingCode: "+234",
+            status: "ready",
+            reason: nationalDigits.length === 10
+              ? "Leading zero restored; Nigerian mobile number matched country code +234"
+              : "Nigerian mobile number matched country code +234"
+          };
+        }
+      }
     }
-  }
 
-  if (nigeriaMobile) {
-    const parsed = parsePhoneNumberFromString(nationalCandidate, "NG");
-    if (parsed?.isValid() && parsed.getType?.() === "MOBILE") {
-      return {
-        phone: parsed.number,
-        callingCode: "+234",
-        status: "ready",
-        reason: nationalDigits.length === 10
-          ? "Leading zero restored; Nigerian mobile number matched country code +234"
-          : "Nigerian mobile number matched country code +234"
-      };
+    // Check valid 10-digit North American numbers for calling code +1.
+    if (/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalDigits)) {
+      const northAmerican = parsePhoneNumberFromString(nationalDigits, "US");
+
+      if (northAmerican?.isValid()) {
+        return {
+          phone: northAmerican.number,
+          callingCode: `+${northAmerican.countryCallingCode}`,
+          status: "ready",
+          reason: "Valid North American number matched calling code +1"
+        };
+      }
     }
-  }
-}
-// Check valid 10-digit North American numbers for calling code +1.
-if (/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalDigits)) {
-  const northAmerican = parsePhoneNumberFromString(nationalDigits, "US");
 
-  if (northAmerican?.isValid()) {
-    return {
-      phone: northAmerican.number,
-      callingCode: `+${northAmerican.countryCallingCode}`,
-      status: "ready",
-      reason: "Valid North American number matched calling code +1"
-    };
-  }
-}
     // For other regions, format only when a unique valid match is found.
     const matches = new Map();
     const mobileMatches = new Map();
@@ -366,20 +382,10 @@ if (/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalDigits)) {
     return [];
   }
 
- async function readFile(file) {
-  const ext = file.name.toLowerCase().split(".").pop();
-
-  if (ext === "txt" || ext === "csv") {
-    return file.text();
-  }
-
-  if (ext === "xlsx" || ext === "xls") {
-    const workbook = XLSX.read(await file.arrayBuffer(), {
-      type: "array",
-      cellDates: true
-    });
-
-    const lines = [];
+  function rowsFromWorkbook(workbook) {
+    const records = [];
+    const nameHeader = /^(guest\s*)?name(s)?$|^full\s*name$/i;
+    const phoneHeader = /phone|mobile|telephone|tel\b|contact\s*(number|no)?/i;
 
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
@@ -389,55 +395,81 @@ if (/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalDigits)) {
         defval: "",
         blankrows: false
       });
+      if (!data.length) continue;
 
-      for (const row of data) {
-        const cells = row.map(value => clean(value));
-        if (cells.some(Boolean)) {
-          lines.push(cells.join("\t"));
+      const firstRow = data[0].map(clean);
+      const nameColumn = firstRow.findIndex(value => nameHeader.test(value));
+      const phoneColumn = firstRow.findIndex(value => phoneHeader.test(value));
+      const hasHeaders = nameColumn >= 0 || phoneColumn >= 0;
+      const nameIndex = nameColumn >= 0 ? nameColumn : 0;
+      const phoneIndex = phoneColumn >= 0 ? phoneColumn : (nameIndex === 0 ? 1 : 0);
+      const start = hasHeaders ? 1 : 0;
+
+      for (const row of data.slice(start)) {
+        const name = clean(row[nameIndex]);
+        const phone = clean(row[phoneIndex]);
+
+        // Keep every populated guest row, including guests without a phone.
+        if (name || phone) records.push({ name, phone });
+      }
+    }
+    return records;
+  }
+
+  async function readFile(file) {
+    const ext = file.name.toLowerCase().split(".").pop();
+
+    if (ext === "txt" || ext === "csv") {
+      return file.text();
+    }
+
+    if (ext === "xlsx" || ext === "xls") {
+      const workbook = XLSX.read(await file.arrayBuffer(), {
+        type: "array",
+        cellDates: true
+      });
+
+      return { records: rowsFromWorkbook(workbook) };
+    }
+
+    if (ext === "docx") {
+      const result = await mammoth.extractRawText({
+        arrayBuffer: await file.arrayBuffer()
+      });
+      return result.value;
+    }
+
+    if (ext === "pdf") {
+      const pdf = await pdfjsLib.getDocument({
+        data: await file.arrayBuffer()
+      }).promise;
+      const pages = [];
+
+      for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+        const page = await pdf.getPage(pageNo);
+        const content = await page.getTextContent();
+        const lines = new Map();
+
+        for (const item of content.items) {
+          if (!item.str?.trim()) continue;
+          const y = Math.round(item.transform[5]);
+          lines.set(y, [...(lines.get(y) || []), item.str]);
         }
-      }
-    }
 
-    return lines.join("\n");
-  }
-
-  if (ext === "docx") {
-    const result = await mammoth.extractRawText({
-      arrayBuffer: await file.arrayBuffer()
-    });
-    return result.value;
-  }
-
-  if (ext === "pdf") {
-    const pdf = await pdfjsLib.getDocument({
-      data: await file.arrayBuffer()
-    }).promise;
-    const pages = [];
-
-    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
-      const page = await pdf.getPage(pageNo);
-      const content = await page.getTextContent();
-      const lines = new Map();
-
-      for (const item of content.items) {
-        if (!item.str?.trim()) continue;
-        const y = Math.round(item.transform[5]);
-        lines.set(y, [...(lines.get(y) || []), item.str]);
+        pages.push(
+          [...lines.entries()]
+            .sort((a, b) => b[0] - a[0])
+            .map(([, words]) => words.join(" "))
+            .join("\n")
+        );
       }
 
-      pages.push(
-        [...lines.entries()]
-          .sort((a, b) => b[0] - a[0])
-          .map(([, words]) => words.join(" "))
-          .join("\n")
-      );
+      return pages.join("\n");
     }
 
-    return pages.join("\n");
+    throw new Error(`Unsupported file type: ${ext}`);
   }
 
-  throw new Error(`Unsupported file type: ${ext}`);
-}
   async function importFiles(files) {
     if (!files?.length) return;
     message.textContent = "Opening your guest list…";
@@ -445,24 +477,23 @@ if (/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalDigits)) {
 
     try {
       for (const file of files) {
-        const text = await readFile(file);
+        const content = await readFile(file);
+        const pairs = typeof content === "string"
+          ? content.split(/\r?\n/).flatMap(splitLine)
+          : content.records;
 
-        for (const line of text.split(/\r?\n/)) {
-          const pairs = splitLine(line);
-
-          for (const pair of pairs) {
-            const parsed = parsePhone(pair.phone);
-            guests.push({
-              id: crypto.randomUUID(),
-              name: pair.name,
-              sourcePhone: pair.phone,
-              phone: parsed.phone,
-              callingCode: parsed.callingCode || "",
-              status: parsed.status,
-              reason: parsed.reason
-            });
-            added++;
-          }
+        for (const pair of pairs) {
+          const parsed = parsePhone(pair.phone);
+          guests.push({
+            id: crypto.randomUUID(),
+            name: pair.name,
+            sourcePhone: pair.phone,
+            phone: parsed.phone,
+            callingCode: parsed.callingCode || "",
+            status: parsed.status,
+            reason: parsed.reason
+          });
+          added++;
         }
       }
 
@@ -560,7 +591,7 @@ if (/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalDigits)) {
   });
 
   exportButton.addEventListener("click", () => {
-    const rowsToExport = guests.filter(guest => guest.name.trim());
+    const rowsToExport = guests;
     if (!rowsToExport.length) return;
 
     const sheet = XLSX.utils.aoa_to_sheet([
