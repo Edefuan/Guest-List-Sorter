@@ -49,8 +49,6 @@
     .button.export:disabled { opacity:.45; cursor:not-allowed; transform:none; }
     #files { display:none; }
     .file-note { color:#89879b; font-size:11px; margin-top:11px; }
-    .country-choice { display:flex; justify-content:center; align-items:center; gap:9px; margin:12px auto 2px; color:var(--muted); font-size:12px; font-weight:700; }
-    .country-choice select { max-width:260px; border:1px solid #d9d2f5; border-radius:9px; background:#fff; color:var(--ink); padding:7px 10px; }
     #message { min-height:24px; padding:0 4px; margin:10px 0 16px; color:#316f55; font-size:13px; font-weight:650; }
     .results-card { overflow:hidden; }
     .results-top { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:22px 24px 15px; }
@@ -73,7 +71,6 @@
     .phone-input { font-variant-numeric:tabular-nums; font-weight:700; }
     .note { display:block; padding:3px 8px 0; color:#88869a; font-size:10px; }
     .status { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; border-radius:999px; padding:5px 9px; font-size:11px; font-weight:800; }
-    .status.ready { color:#18734f; background:#e6f8ee; }
     .status.formatted { color:#18734f; background:#e6f8ee; }
     .status.kept { color:#615d76; background:#eeedf4; }
     .remove { border:0; border-radius:8px; background:transparent; color:#a16e79; font-size:19px; padding:3px 8px; }
@@ -116,7 +113,7 @@
     <div>
       <span class="eyebrow"><span class="sparkle">✦</span> LESS LIST WORK, MORE CELEBRATION</span>
       <h1>Your guests,<br><span class="color">all in a row.</span></h1>
-      <p class="hero-copy">Turn guest documents into a tidy, Excel-ready list. We standardize phone number formats using recognized calling codes or the country you select.</p>
+      <p class="hero-copy">Turn guest documents into a tidy, Excel-ready list. We detect recognized country calling codes automatically and standardize phone numbers to international format.</p>
     </div>
     <div class="hero-art" aria-hidden="true">
       <svg viewBox="0 0 360 240" fill="none">
@@ -148,9 +145,6 @@
       <button class="button primary" id="choose" type="button">Choose a file <span aria-hidden="true">↗</span></button>
       <input id="files" type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt" multiple>
       <div class="file-note">PDF · Word (.docx) · Excel (.xlsx, .xls) · CSV · TXT &nbsp;•&nbsp; Processed in your browser</div>
-      <label class="country-choice" for="defaultCountry">Country for numbers without a calling code
-        <select id="defaultCountry" aria-label="Country for numbers without a calling code"></select>
-      </label>
     </div>
   </section>
   <div id="message" role="status" aria-live="polite"></div>
@@ -170,165 +164,135 @@
         <tbody id="guestRows"><tr><td class="empty" colspan="4">Your guests will appear here. Ready when you are! 🎉</td></tr></tbody>
       </table>
     </div>
-    <div class="results-foot">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 11v5m0-8h.01"/></svg>
-      <span>Numbers with + or 00 calling codes are standardized when the calling code is recognized. Numbers without a calling code use the selected country. Standardized format does not confirm that a number is assigned or in service. Unrecognized or ambiguous input is kept as entered. Excel export includes every guest and phone value.</span>
-    </div>
+    <div class="results-foot"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 11v5m0-8h.01"/></svg><span>International calling codes are detected automatically, including codes written without +. Local formats are matched against recognized numbering plans. If a number is incomplete or its country cannot be identified from the digits, it is kept as entered rather than assigned a guessed country. Formatting does not confirm that a number is in service.</span></div>
   </section>
 </main>
 
 <script type="module">
   import * as XLSX from "https://esm.sh/xlsx@0.18.5";
-  import { parsePhoneNumberFromString, getCountries, getCountryCallingCode } from "https://esm.sh/libphonenumber-js@1.11.20/max";
+  import { parsePhoneNumberFromString, getCountries } from "https://esm.sh/libphonenumber-js@1.11.20/max";
   import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
   import mammoth from "https://esm.sh/mammoth@1.9.0";
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
-
   const fileInput = document.querySelector("#files");
   const dropzone = document.querySelector("#dropzone");
   const rows = document.querySelector("#guestRows");
   const message = document.querySelector("#message");
   const exportButton = document.querySelector("#export");
   const summary = document.querySelector("#summary");
-  const defaultCountry = document.querySelector("#defaultCountry");
   let guests = [];
 
   const regions = getCountries();
-  const countryNames = new Intl.DisplayNames(["en"], { type: "region" });
-
-  for (const region of [...regions].sort((a, b) => countryNames.of(a).localeCompare(countryNames.of(b)))) {
-    const option = document.createElement("option");
-    option.value = region;
-    option.textContent = `${countryNames.of(region)} (+${getCountryCallingCode(region)})`;
-    defaultCountry.append(option);
-  }
-
-  defaultCountry.value = "NG";
-
-  const clean = value => String(value ?? "").replace(/\s+/g, " ").trim();
+  const clean = value => String(value ?? "")
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
   const compact = value => clean(value).replace(/[().\s-]/g, "");
 
-  function parsePhone(raw, defaultRegion) {
+  function parsePhone(raw) {
     const original = clean(raw);
-    const input = compact(original);
-
+    // Spreadsheet cells sometimes include a country label before the number.
+    const input = compact(original).replace(/^[A-Za-z]{2,20}(?=\+|00)/, "");
     if (!input) {
-      return {
-        phone: "",
-        callingCode: "",
-        status: "kept",
-        reason: "No phone number was supplied"
-      };
+      return { phone: "", callingCode: "", status: "kept", reason: "No phone number was supplied" };
     }
 
-    const international = input.startsWith("+")
-      ? input
-      : input.startsWith("00")
-        ? `+${input.slice(2)}`
-        : "";
-
-    // A recognized explicit calling code lets us standardize the number.
-    // This cannot confirm that the number is assigned or in service.
-    if (international) {
-      const parsed = parsePhoneNumberFromString(international);
-
-      if (parsed?.countryCallingCode) {
-        return {
-          phone: parsed.number,
-          callingCode: `+${parsed.countryCallingCode}`,
-          status: "formatted",
-          reason: parsed.isValid()
-            ? `Formatted with country code +${parsed.countryCallingCode}`
-            : `Standardized with country code +${parsed.countryCallingCode}; assignment not verified`
-        };
-      }
-
-      return {
-        phone: international,
-        callingCode: "",
-        status: "kept",
-        reason: "Country calling code was not recognized; original digits were preserved"
-      };
-    }
-
-    const nationalDigits = input.replace(/\D/g, "");
-    const canFormat = parsed => parsed?.number && (parsed.isPossible() || parsed.isValid());
-
+    const digits = input.replace(/\D/g, "");
     const formatted = (parsed, reason) => ({
       phone: parsed.number,
       callingCode: `+${parsed.countryCallingCode}`,
       status: "formatted",
       reason
     });
+    const possible = parsed => parsed?.number && (parsed.isPossible() || parsed.isValid());
+    const keep = reason => ({ phone: original, callingCode: "", status: "kept", reason });
 
-    // Recognize standard ten-digit North American national numbers.
-    if (/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalDigits)) {
-      const parsed = parsePhoneNumberFromString(nationalDigits, "US");
-      if (canFormat(parsed)) {
-        return formatted(parsed, "Formatted as a North American number with country code +1");
+    const explicitInternational = input.startsWith("+")
+      ? input
+      : input.startsWith("00")
+        ? `+${input.slice(2)}`
+        : "";
+
+    if (explicitInternational) {
+      const parsed = parsePhoneNumberFromString(explicitInternational);
+      if (possible(parsed)) {
+        return formatted(
+          parsed,
+          parsed.isValid()
+            ? `Formatted with country code +${parsed.countryCallingCode}`
+            : `Standardized with country code +${parsed.countryCallingCode}; number range not verified`
+        );
+      }
+      return keep("Country code or number length could not be verified; original number was preserved");
+    }
+
+    // Nigeria's domestic mobile prefixes are distinctive. Handle both the
+    // standard leading zero and Excel values where that zero was dropped.
+    // Check these before unprefixed calling codes so Nigerian 81/90/91
+    // numbers are not mistaken for Japan/Turkey/India calling codes.
+    const nigeriaNational = /^(?:0?)(?:70|80|81|90|91)\d{8}$/;
+    if (nigeriaNational.test(digits)) {
+      const national = digits.startsWith("0") ? digits : `0${digits}`;
+      const parsed = parsePhoneNumberFromString(national, "NG");
+      if (possible(parsed)) {
+        return formatted(parsed, "Detected Nigerian national mobile format (+234)");
       }
     }
 
-    // Use the chosen country for numbers without an explicit calling code.
-    let nationalCandidate = nationalDigits;
-
-    // Restore a missing leading zero for common 10-digit UK or Nigerian mobiles.
-    if (
-      ["GB", "NG"].includes(defaultRegion) &&
-      nationalDigits.length === 10 &&
-      /^[7-9]/.test(nationalDigits)
-    ) {
-      nationalCandidate = `0${nationalDigits}`;
-    }
-
-    const local = parsePhoneNumberFromString(nationalCandidate, defaultRegion);
-
-    if (canFormat(local)) {
-      return formatted(local, `Formatted using the selected ${defaultRegion} region`);
-    }
-
-    // Some spreadsheets store the calling code as digits without a plus sign.
-    if (/^\d{10,15}$/.test(input)) {
-      const parsed = parsePhoneNumberFromString(`+${input}`);
-
-      if (parsed?.countryCallingCode && parsed.number) {
-        return formatted(parsed, `Formatted with country code +${parsed.countryCallingCode}`);
+    // UK domestic mobile numbers use 07 followed by a recognized mobile
+    // prefix; accept the common Excel form with its first zero missing too.
+    if (/^0?7[1-57-9]\d{8}$/.test(digits)) {
+      const national = digits.startsWith("0") ? digits : `0${digits}`;
+      const parsed = parsePhoneNumberFromString(national, "GB");
+      if (possible(parsed)) {
+        return formatted(parsed, "Detected UK national mobile format (+44)");
       }
     }
 
-    // Only infer a country from an unprefixed number if there is one unique match.
+    // Unprefixed calling codes are checked after distinctive national
+    // patterns, e.g. 447..., 233..., 234..., 39..., 961..., and 1....
+    if (!digits.startsWith("0") && /^\d{8,15}$/.test(digits)) {
+      const international = parsePhoneNumberFromString(`+${digits}`);
+      if (possible(international)) {
+        return formatted(
+          international,
+          `Detected country code +${international.countryCallingCode} without a plus sign`
+        );
+      }
+    }
+
+    // Ten-digit North American national numbers are recognized when their
+    // numbering-plan metadata validates them (not just by length).
+    if (/^[2-9]\d{2}[2-9]\d{6}$/.test(digits)) {
+      const parsed = parsePhoneNumberFromString(digits, "US");
+      if (parsed?.isValid()) return formatted(parsed, "Detected North American national format (+1)");
+    }
+
+    // For other national formats, only auto-detect a region when the numbering
+    // metadata says the complete number is valid and yields one unique result.
     const matches = new Map();
-
     for (const region of regions) {
-      const parsed = parsePhoneNumberFromString(input, region);
-
-      if (canFormat(parsed)) {
-        matches.set(parsed.number, parsed);
-      }
-
-      if (matches.size > 1) break;
+      const parsed = parsePhoneNumberFromString(digits, region);
+      if (parsed?.isValid()) matches.set(parsed.number, parsed);
+      if (matches.size > 1) return keep("More than one country fits this national number; original number was preserved");
     }
-
     if (matches.size === 1) {
       const parsed = matches.values().next().value;
-      return formatted(parsed, `Formatted with country code +${parsed.countryCallingCode}`);
+      return formatted(parsed, `Detected national numbering plan (+${parsed.countryCallingCode})`);
     }
 
-    return {
-      phone: original,
-      callingCode: "",
-      status: "kept",
-      reason: "Could not determine a country safely; original number was preserved"
-    };
+    return keep("Number is incomplete or its country cannot be identified from the digits; original was preserved");
   }
 
   function splitLine(line) {
     const value = clean(line);
     if (!value) return [];
 
-    const phonePattern =
-      /(?:\+\s?\d[\d\s().-]{5,}\d|\b00\s?\d[\d\s().-]{5,}\d|\b\d[\d\s().-]{6,}\d)/g;
+    // Extract multiple name/number pairs when PDF text places several guests
+    // on the same row.
+    const phonePattern = /(?:\+\s?\d[\d\s().-]{5,}\d|\b00\s?\d[\d\s().-]{5,}\d|\b\d[\d\s().-]{6,}\d)/g;
     const matches = [...value.matchAll(phonePattern)];
 
     if (matches.length) {
@@ -346,15 +310,12 @@
         if (name) pairs.push({ name, phone: clean(match[0]) });
         previousEnd = match.index + match[0].length;
       }
-
       return pairs;
     }
 
     const parts = value.split(/\t+|,|;|\|/).map(clean).filter(Boolean);
-
     if (parts.length >= 2) {
       const index = parts.findIndex(part => part.replace(/\D/g, "").length >= 7);
-
       if (index >= 0) {
         return [{
           name: parts.filter((_, i) => i !== index).join(" "),
@@ -362,7 +323,6 @@
         }];
       }
     }
-
     return [];
   }
 
@@ -373,14 +333,14 @@
 
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
-
       const data = XLSX.utils.sheet_to_json(sheet, {
         header: 1,
+        // Read numeric phone cells as their underlying values. Formatted text
+        // can turn long phone numbers into strings such as "2.34806E+12".
         raw: true,
         defval: "",
         blankrows: false
       });
-
       if (!data.length) continue;
 
       const firstRow = data[0].map(clean);
@@ -394,70 +354,66 @@
       for (const row of data.slice(start)) {
         const name = clean(row[nameIndex]);
         const phone = clean(row[phoneIndex]);
-
-        // Keep every populated guest row, including a guest with no phone number.
+        // Keep every populated guest row, including guests without a phone.
         if (name || phone) records.push({ name, phone });
       }
     }
-
     return records;
   }
 
-  async function readFile(file) {
-    const ext = file.name.toLowerCase().split(".").pop();
+ async function readFile(file) {
+  const ext = file.name.toLowerCase().split(".").pop();
 
-    if (ext === "txt" || ext === "csv") {
-      return file.text();
-    }
-
-    if (ext === "xlsx" || ext === "xls") {
-      const workbook = XLSX.read(await file.arrayBuffer(), {
-        type: "array",
-        cellDates: true
-      });
-
-      return { records: rowsFromWorkbook(workbook) };
-    }
-
-    if (ext === "docx") {
-      const result = await mammoth.extractRawText({
-        arrayBuffer: await file.arrayBuffer()
-      });
-
-      return result.value;
-    }
-
-    if (ext === "pdf") {
-      const pdf = await pdfjsLib.getDocument({
-        data: await file.arrayBuffer()
-      }).promise;
-      const pages = [];
-
-      for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
-        const page = await pdf.getPage(pageNo);
-        const content = await page.getTextContent();
-        const lines = new Map();
-
-        for (const item of content.items) {
-          if (!item.str?.trim()) continue;
-          const y = Math.round(item.transform[5]);
-          lines.set(y, [...(lines.get(y) || []), item.str]);
-        }
-
-        pages.push(
-          [...lines.entries()]
-            .sort((a, b) => b[0] - a[0])
-            .map(([, words]) => words.join(" "))
-            .join("\n")
-        );
-      }
-
-      return pages.join("\n");
-    }
-
-    throw new Error(`Unsupported file type: ${ext}`);
+  if (ext === "txt" || ext === "csv") {
+    return file.text();
   }
 
+  if (ext === "xlsx" || ext === "xls") {
+    const workbook = XLSX.read(await file.arrayBuffer(), {
+      type: "array",
+      cellDates: true
+    });
+
+    return { records: rowsFromWorkbook(workbook) };
+  }
+
+  if (ext === "docx") {
+    const result = await mammoth.extractRawText({
+      arrayBuffer: await file.arrayBuffer()
+    });
+    return result.value;
+  }
+
+  if (ext === "pdf") {
+    const pdf = await pdfjsLib.getDocument({
+      data: await file.arrayBuffer()
+    }).promise;
+    const pages = [];
+
+    for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+      const page = await pdf.getPage(pageNo);
+      const content = await page.getTextContent();
+      const lines = new Map();
+
+      for (const item of content.items) {
+        if (!item.str?.trim()) continue;
+        const y = Math.round(item.transform[5]);
+        lines.set(y, [...(lines.get(y) || []), item.str]);
+      }
+
+      pages.push(
+        [...lines.entries()]
+          .sort((a, b) => b[0] - a[0])
+          .map(([, words]) => words.join(" "))
+          .join("\n")
+      );
+    }
+
+    return pages.join("\n");
+  }
+
+  throw new Error(`Unsupported file type: ${ext}`);
+}
   async function importFiles(files) {
     if (!files?.length) return;
     message.textContent = "Opening your guest list…";
@@ -471,8 +427,7 @@
           : content.records;
 
         for (const pair of pairs) {
-          const parsed = parsePhone(pair.phone, defaultCountry.value);
-
+          const parsed = parsePhone(pair.phone);
           guests.push({
             id: crypto.randomUUID(),
             name: pair.name,
@@ -482,7 +437,6 @@
             status: parsed.status,
             reason: parsed.reason
           });
-
           added++;
         }
       }
@@ -502,11 +456,7 @@
     const formatted = guests.filter(guest => guest.status === "formatted").length;
     const kept = guests.length - formatted;
 
-    summary.innerHTML =
-      `<span class="count">${guests.length} guest${guests.length === 1 ? "" : "s"}</span>` +
-      `<span class="dot"></span><span>${formatted} formatted</span>` +
-      `<span class="dot"></span><span>${kept} kept as entered</span>`;
-
+    summary.innerHTML = `<span class="count">${guests.length} guest${guests.length === 1 ? "" : "s"}</span><span class="dot"></span><span>${formatted} formatted</span><span class="dot"></span><span>${kept} kept as entered</span>`;
     exportButton.disabled = guests.length === 0;
 
     if (!guests.length) {
@@ -532,15 +482,13 @@
       phone.setAttribute("aria-label", "Phone number");
       phone.addEventListener("change", () => {
         guest.sourcePhone = phone.value;
-        const parsed = parsePhone(phone.value, defaultCountry.value);
-
+        const parsed = parsePhone(phone.value);
         Object.assign(guest, {
           phone: parsed.phone,
           callingCode: parsed.callingCode || "",
           status: parsed.status,
           reason: parsed.reason
         });
-
         render();
       });
 
